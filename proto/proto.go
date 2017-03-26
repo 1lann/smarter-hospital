@@ -35,6 +35,3 @@ type AuthRequest struct {
 type AuthResponse struct {
 	Authenticated bool
 }
-
-// ActionHandler represents a rpc2 handler for actions.
-type ActionHandler func(action Action) error
