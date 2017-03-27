@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/1lann/smarter-hospital/proto"
 	"github.com/cenkalti/rpc2"
 )
 
@@ -27,20 +26,22 @@ type Server struct {
 	handlers     map[string]interface{}
 }
 
-// Client represents a client connected to the RPC2 server.
-type Client struct {
+// RemoteClient represents a client connected to the RPC2 server.
+type RemoteClient struct {
 	ID    string
 	State *rpc2.State
 }
 
 // GetAllClients returns a list of all the clients.
-func (s *Server) GetAllClients() []Client {
+func (s *Server) GetAllClients() []RemoteClient {
 	s.clientsMutex.Lock()
-	clients := make([]Client, len(s.clients))
+	defer s.clientsMutex.Unlock()
+
+	clients := make([]RemoteClient, len(s.clients))
 
 	i := 0
 	for id, client := range s.clients {
-		clients[i] = Client{
+		clients[i] = RemoteClient{
 			ID:    id,
 			State: client.State,
 		}
@@ -60,8 +61,8 @@ func (s *Server) Do(id string, name string, val interface{}) (string, error) {
 			"from the system!", ErrClientNotFound
 	}
 
-	result := proto.Result{}
-	err := client.Call(proto.ActionMsg, proto.Action{Name: name, Value: val}, &result)
+	result := Result{}
+	err := client.Call(ActionMsg, Action{Name: name, Value: val}, &result)
 	if err != nil {
 		return "There was an error communicating to the device which " +
 			"performs that action!", err
@@ -94,6 +95,7 @@ func (s *Server) disconnect(id string) {
 	s.clientsMutex.Lock()
 	client, ok := s.clients[id]
 	if !ok {
+		s.clientsMutex.Unlock()
 		return
 	}
 	delete(s.clients, id)
@@ -103,28 +105,33 @@ func (s *Server) disconnect(id string) {
 }
 
 func (s *Server) checkHealth(id string, client *rpc2.Client) {
-	isOngoing, ok := client.State.Get("health_check_ongoing")
-	if ok && isOngoing.(bool) {
-		return
+	result := Result{}
+
+	seq := 0
+	rawSeq, ok := client.State.Get("health_check_ongoing")
+	if ok {
+		seq = rawSeq.(int)
 	}
 
-	result := proto.Result{}
-
-	go func() {
+	go func(expectedSeq int) {
 		time.Sleep(time.Second * 5)
-		isOngoing, _ := client.State.Get("health_check_ongoing")
-		if isOngoing.(bool) {
+		seq, _ := client.State.Get("health_check_ongoing")
+		if seq.(int) == expectedSeq {
 			log.Println("comm: client health check timeout, disconnecting:", id)
 			s.disconnect(id)
 		}
-	}()
+	}(seq)
 
-	client.State.Set("health_check_ongoing", true)
 	start := time.Now()
-	err := client.Call(proto.HealthCheckMsg, nil, &result)
+	client.State.Set("health_check_ongoing", seq)
+	err := client.Call(HealthCheckMsg, true, &result)
 	latency := time.Since(start)
-	client.State.Set("health_check_ongoing", false)
 	client.State.Set("health_check_latency", latency)
+
+	seq = seq + 1
+	seq = seq % 65535
+
+	client.State.Set("health_check_ongoing", seq)
 
 	if err != nil {
 		log.Println("comm: client failed health check, disconnecting:", id,
@@ -184,7 +191,7 @@ func NewServer(addr string, authHandler AuthHandler,
 
 		go func() {
 			time.Sleep(time.Second * 10)
-			if authed, ok := client.State.Get("authenticated"); authed.(bool) && ok {
+			if authed, ok := client.State.Get("authenticated"); ok && authed.(bool) {
 				return
 			}
 
@@ -202,10 +209,12 @@ func NewServer(addr string, authHandler AuthHandler,
 		s.clientsMutex.Lock()
 		delete(s.clients, id.(string))
 		s.clientsMutex.Unlock()
+
+		log.Println("comm: debug: client disconnected:", id.(string))
 	})
 
-	s.server.Handle(proto.AuthMsg, func(client *rpc2.Client, req *proto.AuthRequest,
-		resp *proto.AuthResponse) error {
+	s.server.Handle(AuthMsg, func(client *rpc2.Client, req *AuthRequest,
+		resp *AuthResponse) error {
 		resp.Authenticated = authHandler(req.ID)
 		if !resp.Authenticated {
 			client.Close()
@@ -225,8 +234,8 @@ func NewServer(addr string, authHandler AuthHandler,
 		return nil
 	})
 
-	s.server.Handle(proto.EventMsg, func(client *rpc2.Client,
-		event *proto.Event, result *proto.Result) error {
+	s.server.Handle(EventMsg, func(client *rpc2.Client,
+		event *Event, result *Result) error {
 		id, ok := client.State.Get("id")
 		if !ok {
 			result.Successful = false
@@ -251,7 +260,7 @@ func NewServer(addr string, authHandler AuthHandler,
 		}
 
 		results := reflect.ValueOf(fn).Call([]reflect.Value{
-			reflect.ValueOf(Client{
+			reflect.ValueOf(RemoteClient{
 				ID:    id.(string),
 				State: client.State,
 			}),

@@ -1,47 +1,46 @@
-package arclient
+package comm
 
 import (
 	"errors"
-	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 
-	"github.com/1lann/smarter-hospital/proto"
 	"github.com/cenkalti/rpc2"
 )
 
 // ErrAuthFail is the error returned by Connect when authentication fails.
-var ErrAuthFail = errors.New("arclient: authentication failure")
+var ErrAuthFail = errors.New("comm: authentication failure")
 
 // ActionHandler represents a handler for actions.
-type ActionHandler func(action proto.Action) error
+type ActionHandler func(action Action) error
 
-// The stream used for input and output to communicate with the ATMega.
-var (
-	Input  io.Reader
-	Output io.Writer
-)
+// PingHandler represents a handler that pings the ATMega to check if it's
+// responsive.
+type PingHandler func() bool
 
 // Client represents a connected client to the system.
 type Client struct {
-	client *rpc2.Client
+	client      *rpc2.Client
+	commLock    *sync.Mutex
+	pingHandler PingHandler
 }
 
 // Emit sends an event to the system.
 func (c *Client) Emit(name string, val interface{}) {
-	err := c.client.Notify(proto.EventMsg, proto.Event{
+	err := c.client.Notify(EventMsg, Event{
 		Name:  name,
 		Value: val,
 	})
 	if err != nil {
-		log.Println("arclient: emit fail:", err)
+		log.Println("comm: emit fail:", err)
 	}
 }
 
 func createActionHandler(actionHandler ActionHandler) func(client *rpc2.Client,
-	action *proto.Action, result *proto.Result) error {
-	return func(client *rpc2.Client, action *proto.Action, result *proto.Result) error {
+	action *Action, result *Result) error {
+	return func(client *rpc2.Client, action *Action, result *Result) error {
 		err := actionHandler(*action)
 		if err != nil {
 			result.Successful = false
@@ -63,8 +62,8 @@ func (c *Client) reconnect(addr string, id string) error {
 	c.client = rpc2.NewClient(conn)
 	go c.client.Run()
 
-	authResponse := proto.AuthResponse{}
-	err = c.client.Call(proto.AuthMsg, &proto.AuthRequest{ID: id}, &authResponse)
+	authResponse := AuthResponse{}
+	err = c.client.Call(AuthMsg, &AuthRequest{ID: id}, &authResponse)
 	if err != nil {
 		return err
 	}
@@ -82,48 +81,44 @@ func (c *Client) reconnect(addr string, id string) error {
 //
 // Connect is non-blocking, and will return a client connection to emit
 // events to the server.
-func Connect(addr string, id string, actionHandler ActionHandler) (*Client, error) {
-	if Input == nil {
-		panic("arclient: connect: arclient.Input must be set")
+func Connect(addr string, id string, actionHandler ActionHandler,
+	pingHandler PingHandler) (*Client, error) {
+	c := &Client{
+		commLock:    new(sync.Mutex),
+		pingHandler: pingHandler,
 	}
-
-	if Output == nil {
-		panic("arclient: connect: arclient.Output must be set")
-	}
-
-	c := &Client{}
 	err := c.reconnect(addr, id)
 	if err != nil {
 		return nil, err
 	}
 
-	c.client.Handle(proto.HealthCheckMsg, healthCheckHandler)
+	c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
 	if actionHandler != nil {
-		c.client.Handle(proto.ActionMsg, createActionHandler(actionHandler))
+		c.client.Handle(ActionMsg, createActionHandler(actionHandler))
 	}
 
 	go func() {
 		<-c.client.DisconnectNotify()
-		log.Println("arclient: disconnected, reconnecting...")
+		log.Println("comm: disconnected, reconnecting...")
 		c.client.Close()
 
 		for {
 			err := c.reconnect(addr, id)
 			if err != nil {
-				log.Println("arclient: reconnect error:", err)
+				log.Println("comm: reconnect error:", err)
 				time.Sleep(time.Second * 5)
 				continue
 			}
 
-			log.Println("arclient: connection re-established")
+			log.Println("comm: connection re-established")
 
-			c.client.Handle(proto.HealthCheckMsg, healthCheckHandler)
+			c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
 			if actionHandler != nil {
-				c.client.Handle(proto.ActionMsg, createActionHandler(actionHandler))
+				c.client.Handle(ActionMsg, createActionHandler(actionHandler))
 			}
 
 			<-c.client.DisconnectNotify()
-			log.Println("arclient: disconnected, reconnecting...")
+			log.Println("comm: disconnected, reconnecting...")
 			c.client.Close()
 		}
 	}()
@@ -131,7 +126,9 @@ func Connect(addr string, id string, actionHandler ActionHandler) (*Client, erro
 	return c, nil
 }
 
-func healthCheckHandler(client *rpc2.Client, _ interface{}, result *proto.Result) error {
-	result.Successful = true
+func (c *Client) healthCheckHandler(client *rpc2.Client, _ *bool,
+	result *Result) error {
+	result.Successful = c.pingHandler()
+
 	return nil
 }
