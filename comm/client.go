@@ -29,12 +29,17 @@ type Client struct {
 
 // Emit sends an event to the system.
 func (c *Client) Emit(name string, val interface{}) {
+	if c.client == nil {
+		log.Println("comm: emit failed: client not ready")
+		return
+	}
+
 	err := c.client.Notify(EventMsg, Event{
 		Name:  name,
 		Value: val,
 	})
 	if err != nil {
-		log.Println("comm: emit fail:", err)
+		log.Println("comm: emit failed:", err)
 	}
 }
 
@@ -79,29 +84,16 @@ func (c *Client) reconnect(addr string, id string) error {
 // of the server, id is the id of the client for authentication, actionHandler
 // is handler when an action request is made from the server.
 //
-// Connect is non-blocking, and will return a client connection to emit
-// events to the server.
+// Connect is non-blocking and will return a client connection to emit events
+// to the server.
 func Connect(addr string, id string, actionHandler ActionHandler,
-	pingHandler PingHandler) (*Client, error) {
+	pingHandler PingHandler) *Client {
 	c := &Client{
 		commLock:    new(sync.Mutex),
 		pingHandler: pingHandler,
 	}
-	err := c.reconnect(addr, id)
-	if err != nil {
-		return nil, err
-	}
-
-	c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
-	if actionHandler != nil {
-		c.client.Handle(ActionMsg, createActionHandler(actionHandler))
-	}
 
 	go func() {
-		<-c.client.DisconnectNotify()
-		log.Println("comm: disconnected, reconnecting...")
-		c.client.Close()
-
 		for {
 			err := c.reconnect(addr, id)
 			if err != nil {
@@ -110,7 +102,7 @@ func Connect(addr string, id string, actionHandler ActionHandler,
 				continue
 			}
 
-			log.Println("comm: connection re-established")
+			log.Println("comm: re-connected")
 
 			c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
 			if actionHandler != nil {
@@ -123,7 +115,7 @@ func Connect(addr string, id string, actionHandler ActionHandler,
 		}
 	}()
 
-	return c, nil
+	return c
 }
 
 func (c *Client) healthCheckHandler(client *rpc2.Client, _ *bool,

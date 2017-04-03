@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>LED</title>
+	<link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<link type="text/css" rel="stylesheet" href="/static/css/materialize.min.css"  media="screen,projection"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+	<div class="container">
+		<h1>Behold, the SWITCH!</h1>
+		<div id="the-switch" class="switch">
+			<label>
+				Off
+				<input type="checkbox" v-model="state">
+				<span class="lever"></span>
+				On
+			</label>
+		</div>
+	</div>
+
+	<script type="text/javascript" src="/static/js/vue.js"></script>
+	<script type="text/javascript" src="/static/js/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="/static/js/materialize.min.js"></script>
+	<script type="text/javascript">
+	var theSwitch = new Vue({
+	  el: "#the-switch",
+	  data: {
+		  state: false,
+	  },
+	  watch: {
+		  state: function(newState) {
+
+		  }
+	  }
+	})
+	</script>
+</body>
+</html>

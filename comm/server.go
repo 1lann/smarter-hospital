@@ -162,9 +162,9 @@ func NewServer(addr string, authHandler AuthHandler,
 				eventName + "\", instead got " + strconv.Itoa(handlerType.NumIn()))
 		}
 
-		if handlerType.In(0) != reflect.TypeOf(Client{}) {
+		if handlerType.In(0) != reflect.TypeOf(RemoteClient{}) {
 			return nil, errors.New("comm: first argument to event handler \"" +
-				eventName + "\" must be of type Client")
+				eventName + "\" must be of type RemoteClient")
 		}
 
 		if handlerType.NumOut() != 1 {
@@ -172,7 +172,7 @@ func NewServer(addr string, authHandler AuthHandler,
 				eventName + "\", instead got " + strconv.Itoa(handlerType.NumOut()))
 		}
 
-		if !handlerType.Out(0).Implements(reflect.TypeOf(errors.New(""))) {
+		if !handlerType.Out(0).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
 			return nil, errors.New("comm: return argument for handler \"" +
 				eventName + "\" must be an error")
 		}
@@ -267,12 +267,12 @@ func NewServer(addr string, authHandler AuthHandler,
 			reflect.ValueOf(event.Value),
 		})
 
-		err := results[0].Interface().(error)
+		err := results[0].Interface()
 		if err != nil {
 			result.Successful = false
 			result.Message = "Server error while handling event"
 			log.Println("comm: error while handling event \""+event.Name+
-				"\":", err)
+				"\":", err.(error))
 			return nil
 		}
 
