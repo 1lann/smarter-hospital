@@ -1,9 +1,9 @@
 package blinker
 
-import "encoding/gob"
+import "github.com/1lann/smarter-hospital/comm"
 
 func init() {
-	gob.RegisterName("blinkact", Action{})
+	core.RegisterAction(Action{})
 }
 
 // Action represents a blinker action.

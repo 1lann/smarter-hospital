@@ -1,17 +1,18 @@
-package comm
+package core
 
 import (
 	"errors"
 	"log"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/rpc2"
 )
 
-// ErrAuthFail is the error returned by Connect when authentication fails.
-var ErrAuthFail = errors.New("comm: authentication failure")
+// ErrHandshakeFail is the error returned by Connect when the handshake fails.
+var ErrHandshakeFail = errors.New("comm: handshake failure")
 
 // ActionHandler represents a handler for actions.
 type ActionHandler func(action Action) error
@@ -67,14 +68,40 @@ func (c *Client) reconnect(addr string, id string) error {
 	c.client = rpc2.NewClient(conn)
 	go c.client.Run()
 
-	authResponse := AuthResponse{}
-	err = c.client.Call(AuthMsg, &AuthRequest{ID: id}, &authResponse)
+	var moduleIDs []string
+
+	for moduleID := range setupModules {
+		moduleIDs = append(moduleIDs, moduleID)
+	}
+
+	var handshakeResp HandshakeResponse
+	err = c.client.Call(AuthMsg, &HandshakeRequest{
+		ModuleIDs: moduleIDs,
+	}, &handshakeResp)
 	if err != nil {
 		return err
 	}
 
-	if !authResponse.Authenticated {
-		return ErrAuthFail
+	if !handshakeResp.Successful {
+		return ErrHandshakeFail
+	}
+
+	for moduleID, settings := range handshakeResp.ModuleSettings {
+		module, found := setupModules[moduleID]
+		if !found {
+			log.Println("comm: handshake module settings: unknown module ID:",
+				moduleID)
+			continue
+		}
+
+		if !reflect.TypeOf(settings).AssignableTo(
+			module.module.FieldByName("Settings").Type()) {
+			log.Println("comm: handshake module settings: settings is not "+
+				"assignable for:", moduleID)
+			return ErrHandshakeFail
+		}
+
+		module.module.FieldByName("Settings").Set(reflect.ValueOf(settings))
 	}
 
 	return nil

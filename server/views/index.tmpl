@@ -3,19 +3,18 @@
 <head>
 	<title>LED</title>
 	<link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-	<link type="text/css" rel="stylesheet" href="/static/css/materialize.min.css"  media="screen,projection"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<link type="text/css" rel="stylesheet" href="/static/css/materialize.min.css"  media="screen,projection">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 	<div class="container">
-		<h1>Behold, the SWITCH!</h1>
-		<div id="the-switch" class="switch">
-			<label>
-				Off
-				<input type="checkbox" v-model="state">
-				<span class="lever"></span>
-				On
-			</label>
+		<h1>Behold, the SLIDER!</h1>
+		<div id="the-slider">
+			<form action="#">
+				<p class="range-field">
+					<input type="range" v-model="value" min="0" max="20">
+				</p>
+			</form>
 		</div>
 	</div>
 
@@ -24,16 +23,21 @@
     <script type="text/javascript" src="/static/js/materialize.min.js"></script>
 	<script type="text/javascript">
 	var theSwitch = new Vue({
-	  el: "#the-switch",
+	  el: "#the-slider",
 	  data: {
-		  state: false,
+		  value: "1",
 	  },
 	  watch: {
-		  state: function(newState) {
+		  value: function(newState) {
+			  if (newState == "0") {
+				  $.get("/blink/1");
+			  } else {
+				  $.get("/blink/" + newState);
+			  }
 
 		  }
 	  }
-	})
+  	});
 	</script>
 </body>
 </html>
