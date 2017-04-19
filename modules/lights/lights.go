@@ -3,18 +3,24 @@ package lights
 import (
 	"time"
 
-	"github.com/1lann/smarter-hospital/states"
+	"github.com/1lann/smarter-hospital/core"
+
 	"gopkg.in/mgo.v2/bson"
 )
 
 const timeframe = 10 * time.Minute
 
 func init() {
-	states.RegisterStateRetriever(retriever)
-	core.RegisterAction(Action{})
+	core.RegisterModule(Module{})
 }
 
-var lastKnownStates map[string]bool
+type Module struct {
+	ID string
+
+	Action
+
+	Lights []Pin
+}
 
 // Action represents the action value for lighting control.
 type Action struct {

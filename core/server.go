@@ -13,8 +13,8 @@ import (
 
 // Some errors that the Do can possibly return
 var (
-	ErrClientNotFound = errors.New("comm: no such client")
-	ErrDeviceError    = errors.New("comm: device reported error")
+	ErrClientNotFound = errors.New("core: no such client")
+	ErrDeviceError    = errors.New("core: device reported error")
 )
 
 // Server represents a running RPC2 server.
@@ -72,10 +72,20 @@ func (s *Server) disconnect(moduleID string) {
 		s.clientsMutex.Unlock()
 		return
 	}
-	delete(s.clients, moduleID)
+
+	for moduleID, connectedClient := range s.clients {
+		if client == connectedClient {
+			dcHandler, found := registeredDisconnect[moduleID]
+			if found {
+				go dcHandler()
+			}
+
+			delete(s.clients, moduleID)
+		}
+	}
 	s.clientsMutex.Unlock()
 
-	client.Close()
+	go client.Close()
 }
 
 func (s *Server) checkHealth(moduleID string, client *rpc2.Client) {
@@ -91,7 +101,7 @@ func (s *Server) checkHealth(moduleID string, client *rpc2.Client) {
 		time.Sleep(time.Second * 5)
 		seq, _ := client.State.Get("health_check_ongoing")
 		if seq.(int) == expectedSeq {
-			log.Println("comm: client health check timeout, disconnecting:",
+			log.Println("core: client health check timeout, disconnecting:",
 				moduleID)
 			s.disconnect(moduleID)
 		}
@@ -109,20 +119,20 @@ func (s *Server) checkHealth(moduleID string, client *rpc2.Client) {
 	client.State.Set("health_check_ongoing", seq)
 
 	if err != nil {
-		log.Println("comm: client failed health check, disconnecting:",
+		log.Println("core: client failed health check, disconnecting:",
 			moduleID, "reason:", err)
 		s.disconnect(moduleID)
 		return
 	}
 
 	if !result.Successful {
-		log.Println("comm: client sent incorrect response for health check, "+
+		log.Println("core: client sent incorrect response for health check, "+
 			"disconnecting:", moduleID)
 		s.disconnect(moduleID)
 		return
 	}
 
-	log.Println("comm: debug: health check for \""+moduleID+"\" successful "+
+	log.Println("core: debug: health check for \""+moduleID+"\" successful "+
 		"with latency:", latency.Nanoseconds()/1000000, "ms")
 }
 
@@ -146,30 +156,56 @@ func NewServer(addr string) (*Server, error) {
 				return
 			}
 
-			log.Println("comm: client took too long to authenticate")
+			log.Println("core: client took too long to handshake")
 			client.Close()
 		}()
 	})
 
 	s.server.OnDisconnect(func(client *rpc2.Client) {
-		id, ok := client.State.Get("id")
-		if !ok {
-			return
-		}
-
 		s.clientsMutex.Lock()
-		delete(s.clients, id.(string))
+		for moduleID, connectedClient := range s.clients {
+			if client == connectedClient {
+				dcHandler, found := registeredDisconnect[moduleID]
+				if found {
+					go dcHandler()
+				}
+
+				delete(s.clients, moduleID)
+			}
+		}
 		s.clientsMutex.Unlock()
 
-		log.Println("comm: debug: client disconnected:", id.(string))
+		log.Println("core: debug: client disconnected")
 	})
 
 	s.server.Handle(HandshakeMsg, func(client *rpc2.Client,
 		req *HandshakeRequest, resp *HandshakeResponse) error {
+		settings := make(map[string]interface{})
+
 		s.clientsMutex.Lock()
 		for _, moduleID := range req.ModuleIDs {
+			module, found := setupModules[moduleID]
+			if !found {
+				resp.Successful = false
+				log.Println("core: handshake: client attempted to handshake "+
+					"with non existent module ID:", moduleID)
+				go client.Close()
+				s.clientsMutex.Unlock()
+				return nil
+			}
+
+			connectHandler, found := registeredConnect[moduleID]
+			if found {
+				go connectHandler()
+			}
+
+			if module.registration.settingsType != nil {
+				settings[moduleID] = module.module.Elem().
+					FieldByName("Settings").Interface()
+			}
+
 			if oldClient, found := s.clients[moduleID]; found {
-				log.Println("comm: warning: old client for " + moduleID +
+				log.Println("core: warning: old client for " + moduleID +
 					" found")
 				go oldClient.Close()
 			}
@@ -179,12 +215,16 @@ func NewServer(addr string) (*Server, error) {
 
 		client.State.Set("handshaken", true)
 
+		resp.Successful = true
+		resp.ModuleSettings = settings
+
 		return nil
 	})
 
 	s.server.Handle(EventMsg, func(client *rpc2.Client,
 		event *Event, result *Result) error {
-		go s.handleMessage(client, event, result)
+		go s.handleEvent(client, event)
+		result.Successful = true
 		return nil
 	})
 
@@ -198,56 +238,55 @@ func NewServer(addr string) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) handleMessage(client *rpc2.Client, event *Event,
-	result *Result) {
+func (s *Server) handleEvent(client *rpc2.Client, event *Event) {
+	s.clientsMutex.Lock()
+	expectedClient, found := s.clients[event.ModuleID]
+	s.clientsMutex.Unlock()
+
+	if !found {
+		log.Println("core: refusing to handle event from non-existent module, "+
+			"disconnected client or incomplete handshake:", event.ModuleID)
+		return
+	}
+
+	if expectedClient != client {
+		log.Println("core: refusing to handle event from client that does "+
+			"own module:", event.ModuleID)
+		return
+	}
+
 	shaken, ok := client.State.Get("handshaken")
 	if !ok || !shaken.(bool) {
-		result.Successful = false
-		result.Message =
-			"Refusing to handle event from unauthenticated client"
 		log.Println(
-			"comm: refusing to handle event from unauthenticated client")
+			"core: refusing to handle event from client that has not " +
+				"completed handshake (you should never see this)")
 		return
 	}
 
 	module, found := setupModules[event.ModuleID]
 	if !found {
-		result.Successful = false
-		result.Message = "Module \"" + event.ModuleID +
-			"\" does not exist"
-		log.Println("comm: module \"" + event.ModuleID +
-			"\" does not exist")
+		log.Println("core: module \"" + event.ModuleID + "\" does not exist")
 		return
 	}
 
 	if !module.registration.hasEventHandler {
-		result.Successful = false
-		result.Message = "Module \"" + event.ModuleID +
-			"\" does not support events"
-		log.Println("comm: module \"" + event.ModuleID +
+		log.Println("core: module \"" + event.ModuleID +
 			"\" does not support events")
 		return
 	}
 
 	if !reflect.TypeOf(event.Value).
 		AssignableTo(module.registration.eventType) {
-		result.Successful = false
-		result.Message = "Unassignable types for event: " + event.ModuleID
-		log.Println("comm: unassignable types for event:", event.ModuleID)
+		log.Println("core: unable to handle event: unassignable type for "+
+			"event:", event.ModuleID)
 		return
 	}
 
-	results := module.module.MethodByName("HandleEvent").
+	module.module.MethodByName("HandleEvent").
 		Call([]reflect.Value{reflect.ValueOf(event.Value)})
 
-	err := results[0].Interface()
-	if err != nil {
-		result.Successful = false
-		result.Message = "Server error while handling event"
-		log.Println("comm: error while handling event \""+event.ModuleID+
-			"\":", err.(error))
-		return
+	logics := moduleToLogic[event.ModuleID]
+	for _, logic := range logics {
+		registeredLogic[logic].trigger()
 	}
-
-	result.Successful = true
 }

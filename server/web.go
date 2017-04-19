@@ -5,22 +5,21 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/1lann/smarter-hospital/comm"
+	"github.com/1lann/smarter-hospital/core"
 	"github.com/gin-gonic/gin"
 )
 
 func handleAction(c *gin.Context) {
 	var actionPost struct {
-		Action string
-		Device string
-		Data   json.RawMessage
+		ModuleID string
+		Data     json.RawMessage
 	}
 
 	c.BindJSON(&actionPost)
 
-	actionData, err := core.ActionValue(actionPost.Action)
+	actionData, err := core.ActionValue(actionPost.ModuleID)
 	if err != nil {
-		log.Println("handleWS error while retrieving", actionPost.Action,
+		log.Println("handleWS error while retrieving", actionPost.ModuleID,
 			":", err)
 	}
 
@@ -29,7 +28,7 @@ func handleAction(c *gin.Context) {
 		log.Println("handleWS error while unmarshalling data:", err)
 	}
 
-	resp, err := server.Do(actionPost.Device, actionPost.Action, actionData)
+	resp, err := server.Do(actionPost.ModuleID, actionData)
 	log.Println("server: action post:", err)
 
 	if err != nil {

@@ -5,14 +5,13 @@ import (
 	"log"
 	"net"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/cenkalti/rpc2"
 )
 
 // ErrHandshakeFail is the error returned by Connect when the handshake fails.
-var ErrHandshakeFail = errors.New("comm: handshake failure")
+var ErrHandshakeFail = errors.New("core: handshake failure")
 
 // ActionHandler represents a handler for actions.
 type ActionHandler func(action Action) error
@@ -24,48 +23,43 @@ type PingHandler func() bool
 // Client represents a connected client to the system.
 type Client struct {
 	client      *rpc2.Client
-	commLock    *sync.Mutex
 	pingHandler PingHandler
 }
 
 // Emit sends an event to the system.
-func (c *Client) Emit(name string, val interface{}) {
+func (c *Client) Emit(moduleID string, val interface{}) {
 	if c.client == nil {
-		log.Println("comm: emit failed: client not ready")
+		log.Println("core: emit failed: client not ready")
+		return
+	}
+
+	if !reflect.TypeOf(val).
+		AssignableTo(setupModules[moduleID].registration.eventType) {
+		log.Println("core: refusing to emit: event value not assignable to " +
+			"module's registered event type")
 		return
 	}
 
 	err := c.client.Notify(EventMsg, Event{
-		Name:  name,
-		Value: val,
+		ModuleID: moduleID,
+		Value:    val,
 	})
 	if err != nil {
-		log.Println("comm: emit failed:", err)
+		log.Println("core: emit failed:", err)
 	}
 }
 
-func createActionHandler(actionHandler ActionHandler) func(client *rpc2.Client,
-	action *Action, result *Result) error {
-	return func(client *rpc2.Client, action *Action, result *Result) error {
-		err := actionHandler(*action)
-		if err != nil {
-			result.Successful = false
-			result.Message = err.Error()
-			return nil
-		}
-
-		result.Successful = true
-		return nil
-	}
-}
-
-func (c *Client) reconnect(addr string, id string) error {
+func (c *Client) reconnect(addr string) error {
 	conn, err := net.DialTimeout("tcp", addr, time.Second*10)
 	if err != nil {
 		return err
 	}
 
 	c.client = rpc2.NewClient(conn)
+
+	c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
+	c.client.Handle(ActionMsg, c.actionHandler)
+
 	go c.client.Run()
 
 	var moduleIDs []string
@@ -75,7 +69,7 @@ func (c *Client) reconnect(addr string, id string) error {
 	}
 
 	var handshakeResp HandshakeResponse
-	err = c.client.Call(AuthMsg, &HandshakeRequest{
+	err = c.client.Call(HandshakeMsg, &HandshakeRequest{
 		ModuleIDs: moduleIDs,
 	}, &handshakeResp)
 	if err != nil {
@@ -89,19 +83,20 @@ func (c *Client) reconnect(addr string, id string) error {
 	for moduleID, settings := range handshakeResp.ModuleSettings {
 		module, found := setupModules[moduleID]
 		if !found {
-			log.Println("comm: handshake module settings: unknown module ID:",
+			log.Println("core: handshake module settings: unknown module ID:",
 				moduleID)
 			continue
 		}
 
 		if !reflect.TypeOf(settings).AssignableTo(
-			module.module.FieldByName("Settings").Type()) {
-			log.Println("comm: handshake module settings: settings is not "+
+			module.module.Elem().FieldByName("Settings").Type()) {
+			log.Println("core: handshake module settings: settings is not "+
 				"assignable for:", moduleID)
 			return ErrHandshakeFail
 		}
 
-		module.module.FieldByName("Settings").Set(reflect.ValueOf(settings))
+		module.module.Elem().FieldByName("Settings").
+			Set(reflect.ValueOf(settings))
 	}
 
 	return nil
@@ -113,31 +108,24 @@ func (c *Client) reconnect(addr string, id string) error {
 //
 // Connect is non-blocking and will return a client connection to emit events
 // to the server.
-func Connect(addr string, id string, actionHandler ActionHandler,
-	pingHandler PingHandler) *Client {
+func Connect(addr string, pingHandler PingHandler) *Client {
 	c := &Client{
-		commLock:    new(sync.Mutex),
 		pingHandler: pingHandler,
 	}
 
 	go func() {
 		for {
-			err := c.reconnect(addr, id)
+			err := c.reconnect(addr)
 			if err != nil {
-				log.Println("comm: reconnect error:", err)
+				log.Println("core: reconnect error:", err)
 				time.Sleep(time.Second * 5)
 				continue
 			}
 
-			log.Println("comm: re-connected")
-
-			c.client.Handle(HealthCheckMsg, c.healthCheckHandler)
-			if actionHandler != nil {
-				c.client.Handle(ActionMsg, createActionHandler(actionHandler))
-			}
+			log.Println("core: re-connected")
 
 			<-c.client.DisconnectNotify()
-			log.Println("comm: disconnected, reconnecting...")
+			log.Println("core: disconnected, reconnecting...")
 			c.client.Close()
 		}
 	}()
@@ -149,5 +137,35 @@ func (c *Client) healthCheckHandler(client *rpc2.Client, _ *bool,
 	result *Result) error {
 	result.Successful = c.pingHandler()
 
+	return nil
+}
+
+func (c *Client) actionHandler(client *rpc2.Client, action *Action,
+	result *Result) error {
+	module, found := setupModules[action.ModuleID]
+	if !found {
+		result.Message = "Module not found"
+		result.Successful = false
+		return nil
+	}
+
+	if module.registration.actionType == nil {
+		result.Message = "Module does not support actions"
+		result.Successful = false
+		return nil
+	}
+
+	results := module.module.MethodByName("HandleAction").Call([]reflect.Value{
+		reflect.ValueOf(c),
+		reflect.ValueOf(action.Value),
+	})
+
+	if results[0].IsNil() {
+		return nil
+	}
+
+	err := results[0].Interface().(error)
+	result.Message = err.Error()
+	result.Successful = false
 	return nil
 }

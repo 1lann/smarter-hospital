@@ -26,85 +26,96 @@ type setupModule struct {
 	module       reflect.Value
 }
 
-// RegisterModule registers a module
+// RegisterModule registers a module. Used for clients and servers.
 func RegisterModule(module interface{}) {
 	moduleType := reflect.TypeOf(module)
+	moduleValue := reflect.New(moduleType)
 	moduleName := strings.Split(moduleType.String(), ".")[0]
-	panicPrefix := "comm: register module: " + moduleName + ": "
+	panicPrefix := "core: register module: " + moduleName + ": "
 
 	if moduleType.Kind() != reflect.Struct {
 		panic(panicPrefix + "module must be a struct")
 	}
 
+	idField, exists := moduleType.FieldByName("ID")
+	if !exists {
+		panic(panicPrefix + "module must have an ID field")
+	}
+
+	if idField.Type.Kind() != reflect.String {
+		panic(panicPrefix + "ID field must be of type string")
+	}
+
 	register := registeredModule{moduleType: moduleType}
-
-	eventField, exists := moduleType.FieldByName("Event")
-	if exists {
-		register.eventType = eventField.Type
-		gob.RegisterName("evt_"+moduleName, reflect.New(eventField.Type))
-	}
-
-	actionField, exists := moduleType.FieldByName("Action")
-	if exists {
-		register.actionType = actionField.Type
-		gob.RegisterName("act_"+moduleName, reflect.New(actionField.Type))
-	}
 
 	settingsField, exists := moduleType.FieldByName("Settings")
 	if exists {
 		register.settingsType = settingsField.Type
+		gob.RegisterName("set_"+moduleName,
+			reflect.Zero(settingsField.Type).Interface())
 	}
 
-	eventHandler, exists := moduleType.MethodByName("HandleEvent")
-	if exists {
-		if eventHandler.Type.NumIn() != 1 {
+	eventHandler := moduleValue.MethodByName("HandleEvent")
+	if eventHandler.IsValid() {
+		handlerType := eventHandler.Type()
+		if handlerType.NumIn() != 1 {
 			panic(panicPrefix + "HandleEvent: expected 1 argument, " +
-				"instead got " + strconv.Itoa(eventHandler.Type.NumIn()))
+				"instead got " + strconv.Itoa(handlerType.NumIn()))
 		}
 
-		if !register.eventType.AssignableTo(eventHandler.Type.In(0)) {
-			panic(panicPrefix + "HandleEvent: first argument must be the " +
-				"same type as Module.Event")
-		}
+		register.eventType = handlerType.In(0)
+		gob.RegisterName("evt_"+moduleName, reflect.Zero(register.eventType).
+			Interface())
 
-		if eventHandler.Type.NumOut() != 1 {
-			panic(panicPrefix + "HandleEvent: expected 1 return value, " +
-				"instead got " + strconv.Itoa(eventHandler.Type.NumOut()))
-		}
-
-		if !eventHandler.Type.Out(0).Implements(reflect.TypeOf((*error)(nil)).
-			Elem()) {
-			panic(panicPrefix + "HandleEvent: return type must be error")
+		if handlerType.NumOut() != 0 {
+			panic(panicPrefix + "HandleEvent: expected no return values, " +
+				"instead got " + strconv.Itoa(handlerType.NumOut()))
 		}
 
 		register.hasEventHandler = true
 	}
 
-	infoProvider, exists := moduleType.MethodByName("Info")
-	if exists {
-		if infoProvider.Type.NumIn() != 0 {
+	infoProvider := moduleValue.MethodByName("Info")
+	if infoProvider.IsValid() {
+		infoType := infoProvider.Type()
+		if infoType.NumIn() != 0 {
 			panic(panicPrefix + "Info: expected 0 arguments, instead " +
-				"got " + strconv.Itoa(infoProvider.Type.NumIn()))
+				"got " + strconv.Itoa(infoType.NumIn()))
 		}
 
-		if infoProvider.Type.NumOut() != 1 {
+		if infoType.NumOut() != 1 {
 			panic(panicPrefix + "Info: expected 1 return argument, " +
-				"instead got " + strconv.Itoa(infoProvider.Type.NumOut()))
+				"instead got " + strconv.Itoa(infoType.NumOut()))
 		}
 
 		register.hasInfoProvider = true
 	}
 
-	actionHandler, exists := moduleType.MethodByName("HandleAction")
-	if exists {
-		if actionHandler.Type.NumIn() != 1 {
-			panic(panicPrefix + "HandleAction: expected 1 argument, " +
-				"instead got " + strconv.Itoa(actionHandler.Type.NumIn()))
+	actionHandler := moduleValue.MethodByName("HandleAction")
+	if actionHandler.IsValid() {
+		handlerType := actionHandler.Type()
+		if handlerType.NumIn() != 2 {
+			panic(panicPrefix + "HandleAction: expected 2 arguments, " +
+				"instead got " + strconv.Itoa(handlerType.NumIn()))
 		}
 
-		if !register.actionType.AssignableTo(actionHandler.Type.In(0)) {
-			panic(panicPrefix + "HandleAction: first argument must be the " +
-				"same type as Module.Action")
+		if !reflect.TypeOf(&Client{}).AssignableTo(handlerType.In(0)) {
+			panic(panicPrefix + "HandleAction: first argument must be of " +
+				"type *core.Client")
+		}
+
+		register.actionType = handlerType.In(1)
+		gob.RegisterName("act_"+moduleName, reflect.Zero(register.actionType).
+			Interface())
+
+		if handlerType.NumOut() != 1 {
+			panic(panicPrefix + "HandleAction: expected 1 return argument, " +
+				"instead got " + strconv.Itoa(handlerType.NumOut()))
+		}
+
+		if !handlerType.Out(0).Implements(reflect.TypeOf((*error)(nil)).
+			Elem()) {
+			panic(panicPrefix + "HandleAction: return type must be error")
 		}
 
 		register.hasActionHandler = true
@@ -117,14 +128,15 @@ func RegisterModule(module interface{}) {
 }
 
 // SetupModule sets up a module for use with the given settings.
+// Used for clients and servers.
 func SetupModule(moduleName string, id string, settings ...interface{}) {
 	if _, found := setupModules[id]; found {
-		panic("comm: setup module: module ID already exists: " + id)
+		panic("core: setup module: module ID already exists: " + id)
 	}
 
-	panicPrefix := "comm: setup module: " + id + ": "
+	panicPrefix := "core: setup module: " + id + ": "
 
-	if len(settings) >= 1 {
+	if len(settings) > 1 {
 		panic(panicPrefix + "at most 1 settings value can be provided")
 	}
 
@@ -141,8 +153,11 @@ func SetupModule(moduleName string, id string, settings ...interface{}) {
 				"Module.Settings")
 		}
 
-		newModule.FieldByName("Settings").Set(reflect.ValueOf(settings[0]))
+		newModule.Elem().FieldByName("Settings").
+			Set(reflect.ValueOf(settings[0]))
 	}
+
+	newModule.Elem().FieldByName("ID").SetString(id)
 
 	setupModules[id] = &setupModule{
 		registration: module,
@@ -152,7 +167,7 @@ func SetupModule(moduleName string, id string, settings ...interface{}) {
 
 // ErrNoSuchAction is returned if no such action value is registered when
 // calling ActionValue.
-var ErrNoSuchAction = errors.New("comm: no such action")
+var ErrNoSuchAction = errors.New("core: no such action")
 
 // ActionValue returns the registered sample value given the ID of a module.
 func ActionValue(id string) (interface{}, error) {
@@ -165,5 +180,5 @@ func ActionValue(id string) (interface{}, error) {
 		return nil, ErrNoSuchAction
 	}
 
-	return reflect.New(value.registration.actionType).Interface(), nil
+	return reflect.Zero(value.registration.actionType).Interface(), nil
 }

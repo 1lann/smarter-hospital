@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/1lann/multitemplate"
-	"github.com/1lann/smarter-hospital/comm"
+	"github.com/1lann/smarter-hospital/core"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gin-gonic/gin"
 )
