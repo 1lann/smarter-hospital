@@ -1,0 +1,9 @@
+#!/bin/bash
+cd $GOPATH/src/github.com/1lann/smarter-hospital/server
+go build -o server . || exit
+cd ../views
+go-bindata -pkg views -o assets.go **/*.tmpl
+cd script
+gopherjs build --tags debug -o ../../server/vendor/js/views.min.js || exit
+cd ../../server
+./server

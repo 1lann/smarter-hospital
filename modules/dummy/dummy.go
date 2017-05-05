@@ -42,6 +42,10 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 	return nil
 }
 
+func (m *Module) PollEvents(client *core.Client) {
+
+}
+
 func (m *Module) HandleEvent(evt Event) {
 	log.Println("I received an event, it says:", evt)
 	log.Println("I would like to say HelloWorld is set to:",

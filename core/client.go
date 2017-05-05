@@ -22,8 +22,9 @@ type PingHandler func() bool
 
 // Client represents a connected client to the system.
 type Client struct {
-	client      *rpc2.Client
-	pingHandler PingHandler
+	client         *rpc2.Client
+	pingHandler    PingHandler
+	startedPolling bool
 }
 
 // Emit sends an event to the system.

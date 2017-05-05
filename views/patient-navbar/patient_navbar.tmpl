@@ -1,0 +1,38 @@
+<div>
+
+	<div class="ui top fixed menu">
+		<a @click="ToggleMenu" class="on-mobile item">
+			<i class="sidebar icon"></i>
+		</a>
+
+		<div class="ui container on-desktop">
+			<div class="left menu">
+				<span class="ui header item">
+					Room 315
+				</span>
+				<div>
+					Hello, Bob
+				</div>
+			</div>
+
+			<div class="right menu">
+				<div class="item">
+					<div class="ui red labeled icon button" @click="CallNurse">
+						<i class="doctor icon"></i>
+						Call Nurse
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="ui vertical sidebar menu mobile-navbar">
+		<span class="ui header item">
+			Hospital+
+		</span>
+		<a v-for="item in left" :href="item.path" class="item" :class="{active: item.active}">
+			{{item.name}}
+		</a>
+	</div>
+
+</div>

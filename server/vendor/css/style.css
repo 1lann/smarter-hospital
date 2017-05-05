@@ -1,0 +1,24 @@
+html, body {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.on-mobile {
+	display: none !important;
+}
+
+.pusher.fullsize::after {
+	height: 100%;
+	width:100%;
+}
+
+@media only screen and (max-width: 610px) {
+	.on-desktop {
+		display: none !important;
+	}
+
+	.on-mobile {
+		display: block !important;
+	}
+}

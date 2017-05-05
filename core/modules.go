@@ -19,6 +19,7 @@ type registeredModule struct {
 	hasEventHandler  bool
 	hasInfoProvider  bool
 	hasActionHandler bool
+	hasPollEvents    bool
 }
 
 type setupModule struct {
@@ -119,6 +120,22 @@ func RegisterModule(module interface{}) {
 		}
 
 		register.hasActionHandler = true
+	}
+
+	pollEvents := moduleValue.MethodByName("PollEvents")
+	if pollEvents.IsValid() {
+		handlerType := pollEvents.Type()
+		if handlerType.NumIn() != 0 {
+			panic(panicPrefix + "PollEvents: expected no input arguments, " +
+				"instead got " + strconv.Itoa(handlerType.NumIn()))
+		}
+
+		if handlerType.NumOut() != 0 {
+			panic(panicPrefix + "PollEvents: expected no return arguments, " +
+				"instead got " + strconv.Itoa(handlerType.NumOut()))
+		}
+
+		register.hasPollEvents = true
 	}
 
 	if _, found := registeredModules[moduleName]; found {

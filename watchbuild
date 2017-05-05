@@ -1,0 +1,3 @@
+#!/bin/bash
+reflex -d fancy -s -R "server/vendor/*" -R "server/server" -R "views/assets.go" ./server/build
+
