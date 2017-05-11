@@ -12,10 +12,7 @@ func ModelWithTemplate(model interface{},
 	opt := vue.NewOption()
 	opt.El = "#app"
 	opt.SetDataWithMethods(model)
-	templateData, err := Asset(templatePath)
-	if err != nil {
-		panic(err)
-	}
+	templateData := MustAsset(templatePath)
 
 	opt.Template = string(templateData)
 	return opt.NewViewModel()

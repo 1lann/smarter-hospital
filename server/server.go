@@ -6,10 +6,15 @@ import (
 	"os"
 
 	"github.com/1lann/smarter-hospital/core"
-	"github.com/1lann/smarter-hospital/views"
-	_ "github.com/1lann/smarter-hospital/views/imports"
+	"github.com/1lann/smarter-hospital/logic"
+	"github.com/1lann/smarter-hospital/store"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gin-gonic/gin"
+
+	"github.com/1lann/smarter-hospital/views"
+	_ "github.com/1lann/smarter-hospital/views/imports"
+
+	_ "github.com/1lann/smarter-hospital/modules/ping"
 )
 
 var server *core.Server
@@ -17,7 +22,19 @@ var server *core.Server
 var webPath = os.Getenv("GOPATH") + "/src/github.com/1lann/smarter-hospital/server"
 
 func main() {
-	var err error
+	err := store.Connect(store.ConnectOpts{
+		Address:  "127.0.0.1:27017",
+		Database: "smarter-hospital",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	core.SetupModule("ping", "ping1")
+
+	wsServer := ws.NewServer()
+	logic.Register(wsServer)
+
 	server, err = core.NewServer("0.0.0.0:5000")
 	if err != nil {
 		panic(err)
@@ -32,10 +49,10 @@ func main() {
 	}
 
 	r.GET("/ws", func(c *gin.Context) {
-		ws.Handle(c.Request, c.Writer)
+		wsServer.Handle(c.Request, c.Writer)
 	})
 
-	r.POST("/action/:action", handleAction)
+	r.POST("/action/:moduleid", handleAction)
 
 	r.Static("/static", webPath+"/vendor")
 
@@ -47,6 +64,10 @@ func pageHandler(title string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		c.HTML(http.StatusOK, "view.tmpl", gin.H{
 			"Title": title,
+			"User": gin.H{
+				"firstName": "John",
+				"lastName":  "Smith",
+			},
 		})
 	}
 }

@@ -15,10 +15,10 @@ type logicInfo struct {
 	logicManager reflect.Value
 }
 
-func (l logicInfo) trigger() {
-	var arguments []reflect.Value
+func (l logicInfo) trigger(s *Server) {
+	arguments := []reflect.Value{reflect.ValueOf(s)}
 	for _, moduleID := range l.moduleIDs {
-		arguments = append(arguments, setupModules[moduleID].module)
+		arguments = append(arguments, setupModules[moduleID].module.Elem())
 	}
 
 	l.logicManager.MethodByName("Handle").Call(arguments)
@@ -50,8 +50,10 @@ func RegisterDisconnect(moduleID string, handler func()) {
 // actions based on events. Only used for servers.
 func RegisterEventLogic(moduleIDs []string, logicManager interface{}) {
 	managerType := reflect.TypeOf(logicManager)
-	if managerType.Kind() != reflect.Struct {
-		panic("core: register event logic: logicManager must be a struct")
+	if managerType.Kind() != reflect.Ptr ||
+		managerType.Elem().Kind() != reflect.Struct {
+		panic("core: register event logic: logicManager must be a pointer to " +
+			"a struct")
 	}
 
 	id := managerType.String()
@@ -63,19 +65,19 @@ func RegisterEventLogic(moduleIDs []string, logicManager interface{}) {
 	}
 
 	expectedIn := len(moduleIDs) + 1
-	if handle.Type.NumIn() != expectedIn {
+	if handle.Type.NumIn()-1 != expectedIn {
 		panic(panicPrefix + "expected len(moduleIDs) + 1 = " +
-			strconv.Itoa(expectedIn) + " arguments, " + "instead got " +
-			strconv.Itoa(handle.Type.NumIn()))
+			strconv.Itoa(expectedIn) + " arguments, instead got " +
+			strconv.Itoa(handle.Type.NumIn()-1))
 	}
 
-	if !reflect.TypeOf(&Server{}).AssignableTo(handle.Type.In(0)) {
+	if !reflect.TypeOf(&Server{}).AssignableTo(handle.Type.In(1)) {
 		panic(panicPrefix + "first argument must be of of type *core.Server")
 	}
 
-	for i := 1; i <= len(moduleIDs); i++ {
-		module := setupModules[moduleIDs[i-1]]
-		if !handle.Type.In(i).AssignableTo(module.module.Type()) {
+	for i := 2; i < len(moduleIDs)+2; i++ {
+		module := setupModules[moduleIDs[i-2]]
+		if !handle.Type.In(i).AssignableTo(module.module.Elem().Type()) {
 			panic(panicPrefix + "argument " + strconv.Itoa(i) + " must be " +
 				"assignable to matching module type: " +
 				module.module.Elem().Type().String())
@@ -84,7 +86,7 @@ func RegisterEventLogic(moduleIDs []string, logicManager interface{}) {
 
 	registeredLogic[id] = logicInfo{
 		moduleIDs:    moduleIDs,
-		logicManager: reflect.ValueOf(&logicManager),
+		logicManager: reflect.ValueOf(logicManager),
 	}
 
 	for _, moduleID := range moduleIDs {

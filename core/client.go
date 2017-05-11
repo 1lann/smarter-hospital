@@ -2,9 +2,11 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"time"
 
 	"github.com/cenkalti/rpc2"
@@ -47,6 +49,21 @@ func (c *Client) Emit(moduleID string, val interface{}) {
 	})
 	if err != nil {
 		log.Println("core: emit failed:", err)
+	}
+}
+
+// Error emits an error event to the system when an error occurs with
+// a module's PollChanges. Do not use this for errors based on an action.
+func (c *Client) Error(moduleID string, err error) {
+	if c.client == nil {
+		log.Println("core: emit error failed: client not ready")
+		return
+	}
+
+	errorMessage := err.Error()
+	notifyErr := c.client.Notify(ErrorMsg, &errorMessage)
+	if notifyErr != nil {
+		log.Println("core: emit error failed:", notifyErr)
 	}
 }
 
@@ -103,15 +120,39 @@ func (c *Client) reconnect(addr string) error {
 	return nil
 }
 
+func safeEventPoll(module *setupModule, moduleID string, c *Client) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("core: PollEvents for \"" + moduleID +
+				"\" panic: " + fmt.Sprint(r) + "\n" +
+				string(debug.Stack()))
+		}
+	}()
+
+	module.module.MethodByName("PollEvents").Call(
+		[]reflect.Value{reflect.ValueOf(c)},
+	)
+}
+
 // Connect creates a client connection to the system, where addr is the address
 // of the server, id is the id of the client for authentication, actionHandler
-// is handler when an action request is made from the server.
+// is handler when an action request is made from the server. Connect also
+// starts the event pollers of loaded modules.
 //
 // Connect is non-blocking and will return a client connection to emit events
 // to the server.
-func Connect(addr string, pingHandler PingHandler) *Client {
-	c := &Client{
-		pingHandler: pingHandler,
+func Connect(addr string) *Client {
+	c := &Client{}
+
+	for moduleID, module := range setupModules {
+		if module.registration.hasPollEvents {
+			go func(module *setupModule, moduleID string) {
+				for {
+					safeEventPoll(module, moduleID, c)
+					time.Sleep(time.Second * 5)
+				}
+			}(module, moduleID)
+		}
 	}
 
 	go func() {
@@ -136,7 +177,7 @@ func Connect(addr string, pingHandler PingHandler) *Client {
 
 func (c *Client) healthCheckHandler(client *rpc2.Client, _ *bool,
 	result *Result) error {
-	result.Successful = c.pingHandler()
+	result.Successful = true
 
 	return nil
 }
@@ -150,18 +191,22 @@ func (c *Client) actionHandler(client *rpc2.Client, action *Action,
 		return nil
 	}
 
-	if module.registration.actionType == nil {
+	if !module.registration.hasActionHandler {
 		result.Message = "Module does not support actions"
 		result.Successful = false
 		return nil
 	}
 
+	// TODO: consider allowing a string response for text to speech or
+	// additional feedback.
 	results := module.module.MethodByName("HandleAction").Call([]reflect.Value{
 		reflect.ValueOf(c),
 		reflect.ValueOf(action.Value),
 	})
 
 	if results[0].IsNil() {
+		result.Message = "Successful action"
+		result.Successful = true
 		return nil
 	}
 

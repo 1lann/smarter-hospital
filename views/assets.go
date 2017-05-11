@@ -3,43 +3,20 @@
 // navbar/navbar.tmpl
 // notify/notify.tmpl
 // patient-navbar/patient_navbar.tmpl
+// patient-room/patient_room.tmpl
 // room/room.tmpl
 // DO NOT EDIT!
 
 package views
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
-
-func bindataRead(data []byte, name string) ([]byte, error) {
-	gz, err := gzip.NewReader(bytes.NewBuffer(data))
-	if err != nil {
-		return nil, fmt.Errorf("Read %q: %v", name, err)
-	}
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, gz)
-	clErr := gz.Close()
-
-	if err != nil {
-		return nil, fmt.Errorf("Read %q: %v", name, err)
-	}
-	if clErr != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -71,13 +48,45 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _navbarNavbarTmpl = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\xbc\x52\x3d\x6f\xb3\x30\x10\x9e\x9d\x5f\x71\xf2\xfa\x8a\xb0\x47\x24\x7a\xc7\x2e\xdd\xfa\x07\x2e\xe6\x08\xa7\x18\x1b\xd9\x0e\xaa\x14\xe5\xbf\x57\xfe\x20\x10\x3a\x74\x6a\x27\x63\xfb\x9e\x2f\x1e\x37\x2d\x4f\xa7\xdd\x4e\xc4\x15\x94\x46\xef\x8f\xf2\xc6\x10\xec\x08\x1d\x7f\x52\x0b\x03\x99\x9b\x3c\xed\x84\x68\x10\xfe\x2b\xcd\xea\x7a\x94\x1f\xf6\x72\xd1\xf4\x1e\x6f\x66\x8c\x35\xd5\x60\xcf\xac\x09\x38\xd0\x90\x00\xa2\xe1\xf9\xd6\x73\x4b\x67\x74\xc0\xca\x1a\x79\x6a\x6a\x4e\x84\x35\x46\xe5\xad\xb4\xb2\x26\x20\x1b\x72\x60\x4d\xd5\x92\xbf\x06\x3b\x16\xbe\xd5\xa0\xa6\x2e\x2c\xde\x84\x68\xfc\x88\x66\xc5\xd2\x13\xb6\xe4\x56\x66\x84\x78\xb3\x7e\xe4\x80\xfa\x5f\x06\xd4\x11\x51\xc0\x08\x53\xd5\x59\x77\x94\x71\x1e\xd8\x40\xa4\x97\x70\xe8\x1d\x75\xf9\x70\x3f\x62\xe8\x9f\x69\x13\x2d\x1c\xca\xee\x8e\x2a\xf0\x44\x87\xa4\xb6\xcf\x9b\xc7\xac\x7a\xbf\xa7\x53\x83\x03\x3d\x1e\x45\x19\x73\x9c\xba\xfc\xfb\xd7\x64\x8e\x2f\xfd\x6b\xb4\x6f\xee\xd2\xc8\x1f\xd9\x5b\x3e\x9e\x7e\x37\x85\x4d\xe4\x02\x2b\xd4\x30\xb7\x1c\xbd\x43\x7e\x0d\x95\xc1\xe9\x8c\x2e\x3f\xa0\x9f\x2a\x5a\x17\xb4\xd4\xf3\x7b\xe5\x6c\xb3\xe7\xe4\x73\xcc\xb2\x7e\x05\x00\x00\xff\xff\xcb\x58\x06\x25\x21\x03\x00\x00")
+var _navbarNavbarTmpl = []byte(`<div>
+
+	<div class="ui top fixed menu">
+		<a @click="ToggleMenu" class="on-mobile item">
+			<i class="sidebar icon"></i>
+		</a>
+
+		<div class="ui container on-desktop">
+			<div class="left menu">
+				<span class="ui header item">
+					Hospital+
+				</span>
+				<a v-for="item in left" :href="item.path" class="item" :class="{active: item.active}">
+					{{item.name}}
+				</a>
+			</div>
+
+			<div class="right menu">
+				<a v-for="item in right" :href="item.path" class="item" :class="{active: item.active}">
+					{{item.name}}
+				</a>
+			</div>
+		</div>
+	</div>
+
+	<div class="ui vertical sidebar menu mobile-navbar">
+		<span class="ui header item">
+			Hospital+
+		</span>
+		<a v-for="item in left" :href="item.path" class="item" :class="{active: item.active}">
+			{{item.name}}
+		</a>
+	</div>
+
+</div>
+`)
 
 func navbarNavbarTmplBytes() ([]byte, error) {
-	return bindataRead(
-		_navbarNavbarTmpl,
-		"navbar/navbar.tmpl",
-	)
+	return _navbarNavbarTmpl, nil
 }
 
 func navbarNavbarTmpl() (*asset, error) {
@@ -91,13 +100,26 @@ func navbarNavbarTmpl() (*asset, error) {
 	return a, nil
 }
 
-var _notifyNotifyTmpl = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x64\x8e\xcb\x4e\xc3\x30\x10\x45\xd7\xe9\x57\x8c\xcc\xba\x75\xdb\x05\x12\xc8\xcd\x86\x0d\xec\xf9\x81\xc1\x9e\xc4\xa3\xfa\x11\xd9\x43\x78\x7c\x3d\x4a\x93\x20\x41\x56\x63\xe9\x1c\xdf\x7b\x8d\xe3\xb1\xdd\x35\xc6\x9f\xc1\x06\xac\xf5\xa2\x3c\xa1\xa3\xa2\xda\xe7\x5c\xf8\x3b\x27\xc1\x00\x4f\x58\x9c\xd1\xfe\x3c\x89\x8e\xc7\xd5\xb4\x58\x1c\xf8\x5f\x4d\xb5\xbb\x66\xc3\xf7\x1c\xb1\xa7\x1b\x6a\x0c\xc7\x1e\x6a\xb1\x17\xe5\x45\x86\x47\xad\x43\x2e\x14\x07\xfe\xa4\x70\xb0\x39\xea\xd3\xf1\xa8\x4f\x0f\x47\x9d\x50\xde\x0b\xe9\xfb\x39\x50\xcf\x0b\xb7\xc9\x55\xd0\x5e\xc9\x2d\xd9\xff\xa9\xcd\x49\x28\xc9\x4c\x1b\x33\xb4\x2f\x80\x11\x10\x46\x2a\x5f\x50\x39\x0e\x81\x60\x12\x0f\x70\x03\x7d\xce\x0e\x50\x60\xfa\x86\x9c\x38\xf5\x50\x23\x86\x00\x6f\x2c\x15\x72\x07\x9c\xba\x5c\x22\x0a\xe7\x74\x30\x7a\x98\x4b\xd7\x6d\xdb\x7a\xb4\x93\xb9\xb6\x23\xf8\x42\xdd\x45\xdd\xa9\x55\xfa\xc0\x91\xea\x9e\xba\x8e\xac\xa8\xf6\xd5\x73\x05\xae\x80\x10\x38\x5d\x8d\xc6\xbf\xf1\xeb\x63\xb9\xcb\xf9\x09\x00\x00\xff\xff\x17\x03\xef\x75\xbb\x01\x00\x00")
+var _notifyNotifyTmpl = []byte(`<div>
+	<h2 class="header">Horizontal Card</h2>
+	<div class="card horizontal">
+		<div class="card-image">
+			<img src="http://lorempixel.com/100/190/nature/6">
+		</div>
+		<div class="card-stacked">
+			<div class="card-content">
+				<p>I am a very simple card. I am good at containing small bits of information.</p>
+			</div>
+			<div class="card-action">
+				<a href="#" class="waves-effect">This is a link</a>
+			</div>
+		</div>
+	</div>
+</div>
+`)
 
 func notifyNotifyTmplBytes() ([]byte, error) {
-	return bindataRead(
-		_notifyNotifyTmpl,
-		"notify/notify.tmpl",
-	)
+	return _notifyNotifyTmpl, nil
 }
 
 func notifyNotifyTmpl() (*asset, error) {
@@ -111,13 +133,50 @@ func notifyNotifyTmpl() (*asset, error) {
 	return a, nil
 }
 
-var _patientNavbarPatient_navbarTmpl = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x84\x52\xbb\x0e\xdb\x30\x0c\x9c\xe5\xaf\x20\xbc\xb6\x4e\x50\x14\x5d\x02\x27\x28\xda\x25\x4b\x3b\x14\xfd\x01\x5a\xa2\x63\x22\xb2\x68\xc8\xb2\x51\x20\xc8\xbf\x17\x92\x1f\x71\xdc\xa1\x5a\xf4\x20\x8f\x77\x3c\xaa\x34\x3c\x5e\xb2\x4c\xc5\x1d\xb4\xc5\xbe\x3f\xe7\x03\x43\x90\x0e\x6a\xfe\x43\x06\x5a\x72\x43\x7e\xc9\x94\x2a\x11\xbe\x6a\xcb\xfa\x7e\xce\x7f\xcb\xed\x66\xe9\x47\x8c\x2c\x18\x71\x45\x2b\x15\x5b\x02\x0e\xd4\x26\x80\x2a\x79\x89\xf6\x6c\xa8\x42\x0f\xac\xc5\xe5\x97\xf2\xc8\xa9\xe0\x11\x23\xf3\x9e\x5a\x8b\x0b\xc8\x8e\x3c\x88\x2b\x0c\xf5\xf7\x20\xdd\x5c\x6f\x93\x68\xa9\x0e\x2f\x6d\x4a\x95\x7d\x87\x6e\x53\xa5\x21\x34\xe4\x37\x62\x94\xfa\x25\xd2\xc2\xe7\x4f\x5f\xa6\xfc\x63\x04\xcc\xd8\xe4\x41\xca\xb9\x92\xb5\xf2\x11\xbe\x49\x35\x67\x2d\xa1\xf9\xb4\x97\xe1\xf9\xd6\xbc\xeb\xd8\x04\xb7\xe4\xbb\x26\x3d\x19\xb0\x58\x91\x25\x93\x4c\x81\x6a\x08\x41\x5c\xbe\x5a\xfc\x1d\xad\xfd\x39\xf8\x9e\x96\x02\x1b\x37\x8d\xe8\x20\x3b\x33\xe3\x8a\x18\x48\xa0\x99\x73\x55\xff\x6f\x23\xaf\xc3\xda\xd9\x4e\xe2\x48\x3e\xb0\x46\x0b\xcb\xf0\x62\x97\x30\x0d\xb9\x70\x38\x56\xe8\xa7\x7f\xf1\x3f\xe7\xaf\xd2\x77\x1c\xd0\x7e\xc8\xb6\xb6\x97\x08\x63\x51\x8b\x9f\x6c\x02\x76\x10\x47\x9a\xc3\xa9\xf1\x54\x4f\x8f\x87\x0e\x43\x93\xbf\xb9\x09\xa7\xf9\xf6\x40\x1d\x78\xa4\x53\xe2\x39\x4c\x97\xe7\xc4\xf7\x78\xa4\x37\x87\x2d\x3d\x9f\xcb\x3f\x5b\xdb\x9c\xf7\xbf\x01\x00\x00\xff\xff\x56\x9d\xe7\xba\xf8\x02\x00\x00")
+var _patientNavbarPatient_navbarTmpl = []byte(`<div>
+	<div class="ui top fixed menu patient-navbar">
+		<div class="ui header item on-mobile">
+			{{name}}
+		</div>
+
+		<div class="right item on-mobile">
+			<div class="ui red labeled icon button" @click="CallNurse">
+				<i class="doctor icon"></i>
+				Call Nurse
+			</div>
+		</div>
+
+		<div class="ui container on-desktop" style="height:70px;">
+			<div class="left menu">
+				<div class="ui header item">
+					<div class="content">
+						{{time}}
+						<div class="sub header">{{date}}</div>
+					</div>
+				</div>
+				<div class="ui header item">
+					<div class="content">
+						{{name}}
+						<div class="sub header">Room {{roomNumber}}</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="right menu">
+				<div class="item">
+					<div class="ui red labeled icon button" @click="CallNurse" style="font-size:18px;">
+						<i class="doctor icon"></i>
+						Call Nurse
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+`)
 
 func patientNavbarPatient_navbarTmplBytes() ([]byte, error) {
-	return bindataRead(
-		_patientNavbarPatient_navbarTmpl,
-		"patient-navbar/patient_navbar.tmpl",
-	)
+	return _patientNavbarPatient_navbarTmpl, nil
 }
 
 func patientNavbarPatient_navbarTmpl() (*asset, error) {
@@ -126,18 +185,185 @@ func patientNavbarPatient_navbarTmpl() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "patient-navbar/patient_navbar.tmpl", size: 760, mode: os.FileMode(420), modTime: time.Unix(1493958356, 0)}
+	info := bindataFileInfo{name: "patient-navbar/patient_navbar.tmpl", size: 928, mode: os.FileMode(420), modTime: time.Unix(1494228505, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _roomRoomTmpl = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\xb2\x49\xc9\x2c\xb3\xe3\xb2\x29\x48\x2c\xc9\x4c\xcd\x2b\xd1\xcd\x4b\x2c\x4b\x4a\x2c\xb2\xb3\xd1\x47\x13\xe0\xe2\xe2\x02\xa9\x54\x48\xce\x49\x2c\x2e\xb6\x55\x2a\xcd\x54\x48\xce\xcf\x2b\x49\xcc\xcc\x4b\x2d\x52\xb2\xe3\xe2\xb4\xc9\x30\xb4\xf3\x4d\xcd\x4d\x2d\xb6\xd1\xcf\x30\xb4\xe3\xb2\xd1\x07\x9b\x0a\xa3\x01\x01\x00\x00\xff\xff\x72\xdb\x92\xac\x64\x00\x00\x00")
+var _patientRoomPatient_roomTmpl = []byte(`<div>
+<patient-navbar></patient-navbar>
+<div class="ui container with-patient-navbar">
+	<h1 class="ui header">
+		Good {{greeting}}, {{name}}.
+	</h1>
+
+	<div class="ui grid">
+		<div class="eight wide computer eight wide tablet sixteen wide mobile column">
+			<h2 class="ui header">
+				<i class="settings icon"></i>
+				<div class="content">
+					Room controls
+				</div>
+			</h2>
+
+			<a class="ui fluid link grey card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="grey idea icon"></i>
+							<div class="content">
+								Lights off
+								<div class="sub header">Press to turn on lights</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link yellow card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="yellow idea icon"></i>
+							<div class="content">
+								Lights on
+								<div class="sub header">Press to turn off lights</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link orange card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="orange sun icon"></i>
+							<div class="content">
+								Heating from 24&deg;C to 26&deg;C
+								<div class="sub header">Change temperature and view history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link blue card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="blue fa fa-snowflake-o icon"></i>
+							<div class="content">
+								Cooling from 26&deg;C to 24&deg;C
+								<div class="sub header">Change temperature and view history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<h2 class="ui header">
+				<i class="green plus icon"></i>
+				<div class="content">
+					Your health is OK
+				</div>
+			</h2>
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green heartbeat icon"></i>
+							<div class="content">
+								100 BPM
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green hotel icon"></i>
+							<div class="content">
+								In bed
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green theme icon"></i>
+							<div class="content">
+								SpO<sub>2</sub>: 90%
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+		</div>
+		<div class="eight wide computer eight wide tablet sixteen wide mobile column">
+			<h2 class="ui header">
+				<i class="calendar icon"></i>
+				<div class="content">
+					Your agenda
+				</div>
+			</h2>
+
+			<form class="ui form" @submit.prevent="Ping">
+				<div class="field">
+					<label>Ping this</label>
+					<input v-model="pingText" type="text" name="ping" placeholder="Ping text">
+				</div>
+				<button class="ui button" type="submit">Submit</button>
+			</form>
+
+		</div>
+	</div>
+
+</div>
+
+</div>
+`)
+
+func patientRoomPatient_roomTmplBytes() ([]byte, error) {
+	return _patientRoomPatient_roomTmpl, nil
+}
+
+func patientRoomPatient_roomTmpl() (*asset, error) {
+	bytes, err := patientRoomPatient_roomTmplBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "patient-room/patient_room.tmpl", size: 3520, mode: os.FileMode(420), modTime: time.Unix(1494437326, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _roomRoomTmpl = []byte(`<div>
+<patient-navbar></patient-navbar>
+
+
+<div class="ui container">
+	<h1>Memes</h1>
+</div>
+
+</div>
+`)
 
 func roomRoomTmplBytes() ([]byte, error) {
-	return bindataRead(
-		_roomRoomTmpl,
-		"room/room.tmpl",
-	)
+	return _roomRoomTmpl, nil
 }
 
 func roomRoomTmpl() (*asset, error) {
@@ -206,6 +432,7 @@ var _bindata = map[string]func() (*asset, error){
 	"navbar/navbar.tmpl": navbarNavbarTmpl,
 	"notify/notify.tmpl": notifyNotifyTmpl,
 	"patient-navbar/patient_navbar.tmpl": patientNavbarPatient_navbarTmpl,
+	"patient-room/patient_room.tmpl": patientRoomPatient_roomTmpl,
 	"room/room.tmpl": roomRoomTmpl,
 }
 
@@ -257,6 +484,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	}},
 	"patient-navbar": &bintree{nil, map[string]*bintree{
 		"patient_navbar.tmpl": &bintree{patientNavbarPatient_navbarTmpl, map[string]*bintree{}},
+	}},
+	"patient-room": &bintree{nil, map[string]*bintree{
+		"patient_room.tmpl": &bintree{patientRoomPatient_roomTmpl, map[string]*bintree{}},
 	}},
 	"room": &bintree{nil, map[string]*bintree{
 		"room.tmpl": &bintree{roomRoomTmpl, map[string]*bintree{}},

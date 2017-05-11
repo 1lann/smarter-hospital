@@ -23,10 +23,7 @@ type Model struct {
 }
 
 func init() {
-	templateData, err := views.Asset("notify/notify.tmpl")
-	if err != nil {
-		panic(err)
-	}
+	templateData := views.MustAsset("notify/notify.tmpl")
 
 	vue.NewComponent(func() interface{} {
 		return &Model{Object: js.Global.Get("Object").New()}

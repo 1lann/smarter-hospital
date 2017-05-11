@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/mgo.v2/bson"
+
+	"github.com/1lann/smarter-hospital/store"
 	"github.com/cenkalti/rpc2"
 )
 
@@ -178,53 +181,19 @@ func NewServer(addr string) (*Server, error) {
 		log.Println("core: debug: client disconnected")
 	})
 
-	s.server.Handle(HandshakeMsg, func(client *rpc2.Client,
-		req *HandshakeRequest, resp *HandshakeResponse) error {
-		settings := make(map[string]interface{})
+	s.server.Handle(HandshakeMsg, s.handleHandshake)
 
-		s.clientsMutex.Lock()
-		for _, moduleID := range req.ModuleIDs {
-			module, found := setupModules[moduleID]
-			if !found {
-				resp.Successful = false
-				log.Println("core: handshake: client attempted to handshake "+
-					"with non existent module ID:", moduleID)
-				go client.Close()
-				s.clientsMutex.Unlock()
-				return nil
-			}
-
-			connectHandler, found := registeredConnect[moduleID]
-			if found {
-				go connectHandler()
-			}
-
-			if module.registration.settingsType != nil {
-				settings[moduleID] = module.module.Elem().
-					FieldByName("Settings").Interface()
-			}
-
-			if oldClient, found := s.clients[moduleID]; found {
-				log.Println("core: warning: old client for " + moduleID +
-					" found")
-				go oldClient.Close()
-			}
-			s.clients[moduleID] = client
-		}
-		s.clientsMutex.Unlock()
-
-		client.State.Set("handshaken", true)
-
-		resp.Successful = true
-		resp.ModuleSettings = settings
-
+	s.server.Handle(EventMsg, func(client *rpc2.Client, event *Event,
+		result *bool) error {
+		go s.handleEvent(client, event)
+		*result = true
 		return nil
 	})
 
-	s.server.Handle(EventMsg, func(client *rpc2.Client,
-		event *Event, result *Result) error {
-		go s.handleEvent(client, event)
-		result.Successful = true
+	s.server.Handle(ErrorMsg, func(client *rpc2.Client, errorMsg *string,
+		result *bool) error {
+		go s.handleError(client, *errorMsg)
+		*result = true
 		return nil
 	})
 
@@ -236,6 +205,49 @@ func NewServer(addr string) (*Server, error) {
 	go s.healthCheck()
 
 	return s, nil
+}
+
+func (s *Server) handleHandshake(client *rpc2.Client, req *HandshakeRequest,
+	resp *HandshakeResponse) error {
+	settings := make(map[string]interface{})
+
+	s.clientsMutex.Lock()
+	for _, moduleID := range req.ModuleIDs {
+		module, found := setupModules[moduleID]
+		if !found {
+			resp.Successful = false
+			log.Println("core: handshake: client attempted to handshake "+
+				"with non existent module ID:", moduleID)
+			go client.Close()
+			s.clientsMutex.Unlock()
+			return nil
+		}
+
+		connectHandler, found := registeredConnect[moduleID]
+		if found {
+			go connectHandler()
+		}
+
+		if module.registration.settingsType != nil {
+			settings[moduleID] = module.module.Elem().
+				FieldByName("Settings").Interface()
+		}
+
+		if oldClient, found := s.clients[moduleID]; found {
+			log.Println("core: warning: old client for " + moduleID +
+				" found")
+			go oldClient.Close()
+		}
+		s.clients[moduleID] = client
+	}
+	s.clientsMutex.Unlock()
+
+	client.State.Set("handshaken", true)
+
+	resp.Successful = true
+	resp.ModuleSettings = settings
+
+	return nil
 }
 
 func (s *Server) handleEvent(client *rpc2.Client, event *Event) {
@@ -287,6 +299,39 @@ func (s *Server) handleEvent(client *rpc2.Client, event *Event) {
 
 	logics := moduleToLogic[event.ModuleID]
 	for _, logic := range logics {
-		registeredLogic[logic].trigger()
+		go registeredLogic[logic].trigger(s)
+	}
+}
+
+func (s *Server) handleError(client *rpc2.Client, errorMessage string) {
+	s.clientsMutex.Lock()
+	found := false
+	var moduleID string
+	for connectedModuleID, connectedClient := range s.clients {
+		if connectedClient == client {
+			found = true
+			moduleID = connectedModuleID
+			break
+		}
+	}
+	s.clientsMutex.Unlock()
+
+	if !found {
+		log.Println("core: refusing to handle error from disconnected client " +
+			"or incomplete handshake")
+		return
+	}
+
+	log.Println("core: module \"" + moduleID + "\" reported error")
+
+	store.C("module_errors").EnsureIndexKey("Time")
+	store.C("module_errors").EnsureIndexKey("ModuleID")
+	err := store.C("module_errors").Insert(bson.M{
+		"moduleid": moduleID,
+		"error":    errorMessage,
+		"time":     time.Now(),
+	})
+	if err != nil {
+		log.Println("core: failed to store error in store:", err)
 	}
 }

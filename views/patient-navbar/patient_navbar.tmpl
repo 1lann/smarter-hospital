@@ -1,23 +1,35 @@
 <div>
+	<div class="ui top fixed menu patient-navbar">
+		<div class="ui header item on-mobile">
+			{{name}}
+		</div>
 
-	<div class="ui top fixed menu">
-		<a @click="ToggleMenu" class="on-mobile item">
-			<i class="sidebar icon"></i>
-		</a>
+		<div class="right item on-mobile">
+			<div class="ui red labeled icon button" @click="CallNurse">
+				<i class="doctor icon"></i>
+				Call Nurse
+			</div>
+		</div>
 
-		<div class="ui container on-desktop">
+		<div class="ui container on-desktop" style="height:70px;">
 			<div class="left menu">
-				<span class="ui header item">
-					Room 315
-				</span>
-				<div>
-					Hello, Bob
+				<div class="ui header item">
+					<div class="content">
+						{{time}}
+						<div class="sub header">{{date}}</div>
+					</div>
+				</div>
+				<div class="ui header item">
+					<div class="content">
+						{{name}}
+						<div class="sub header">Room {{roomNumber}}</div>
+					</div>
 				</div>
 			</div>
 
 			<div class="right menu">
 				<div class="item">
-					<div class="ui red labeled icon button" @click="CallNurse">
+					<div class="ui red labeled icon button" @click="CallNurse" style="font-size:18px;">
 						<i class="doctor icon"></i>
 						Call Nurse
 					</div>
@@ -25,14 +37,4 @@
 			</div>
 		</div>
 	</div>
-
-	<div class="ui vertical sidebar menu mobile-navbar">
-		<span class="ui header item">
-			Hospital+
-		</span>
-		<a v-for="item in left" :href="item.path" class="item" :class="{active: item.active}">
-			{{item.name}}
-		</a>
-	</div>
-
 </div>

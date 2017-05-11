@@ -10,15 +10,23 @@ html, body {
 
 .pusher.fullsize::after {
 	height: 100%;
-	width:100%;
+	width: 100%;
 }
 
-@media only screen and (max-width: 610px) {
+.ui.container.with-patient-navbar {
+	padding-top: 90px;
+}
+
+@media only screen and (max-width: 700px) {
 	.on-desktop {
 		display: none !important;
 	}
 
 	.on-mobile {
 		display: block !important;
+	}
+
+	.ui.container.with-patient-navbar {
+		padding-top: 60px;
 	}
 }

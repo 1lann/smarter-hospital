@@ -60,7 +60,7 @@ func RegisterModule(module interface{}) {
 	if eventHandler.IsValid() {
 		handlerType := eventHandler.Type()
 		if handlerType.NumIn() != 1 {
-			panic(panicPrefix + "HandleEvent: expected 1 argument, " +
+			panic(panicPrefix + "HandleEvent: expected 1 input argument, " +
 				"instead got " + strconv.Itoa(handlerType.NumIn()))
 		}
 
@@ -125,9 +125,14 @@ func RegisterModule(module interface{}) {
 	pollEvents := moduleValue.MethodByName("PollEvents")
 	if pollEvents.IsValid() {
 		handlerType := pollEvents.Type()
-		if handlerType.NumIn() != 0 {
-			panic(panicPrefix + "PollEvents: expected no input arguments, " +
+		if handlerType.NumIn() != 1 {
+			panic(panicPrefix + "PollEvents: expected 1 input argument, " +
 				"instead got " + strconv.Itoa(handlerType.NumIn()))
+		}
+
+		if !reflect.TypeOf(&Client{}).AssignableTo(handlerType.In(0)) {
+			panic(panicPrefix + "PollEvents: first argument must be of " +
+				"type *core.Client")
 		}
 
 		if handlerType.NumOut() != 0 {
@@ -186,8 +191,8 @@ func SetupModule(moduleName string, id string, settings ...interface{}) {
 // calling ActionValue.
 var ErrNoSuchAction = errors.New("core: no such action")
 
-// ActionValue returns the registered sample value given the ID of a module.
-func ActionValue(id string) (interface{}, error) {
+// ActionType returns the Action type given the ID of a module.
+func ActionType(id string) (reflect.Type, error) {
 	value, found := setupModules[id]
 	if !found {
 		return nil, ErrNoSuchAction
@@ -197,5 +202,5 @@ func ActionValue(id string) (interface{}, error) {
 		return nil, ErrNoSuchAction
 	}
 
-	return reflect.Zero(value.registration.actionType).Interface(), nil
+	return value.registration.actionType, nil
 }

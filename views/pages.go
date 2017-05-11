@@ -16,6 +16,13 @@ type Page interface {
 	Title() string
 }
 
+// User represents information about the current user.
+type User struct {
+	*js.Object
+	FirstName string `js:"firstName"`
+	LastName  string `js:"lastName"`
+}
+
 var registeredPages = make(map[string]Page)
 
 // RegisterPage registers a page to the pages system.
@@ -55,4 +62,11 @@ func Run() {
 	// TODO: startup websocket system
 
 	select {}
+}
+
+// GetUser returns the user information from the page.
+func GetUser() User {
+	var user User
+	user.Object = js.Global.Get("user")
+	return user
 }

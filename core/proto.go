@@ -6,6 +6,7 @@ const (
 	EventMsg       = "event"
 	ActionMsg      = "action"
 	HandshakeMsg   = "handshake"
+	ErrorMsg       = "error"
 )
 
 // Event represents an event from a sensor to the system.

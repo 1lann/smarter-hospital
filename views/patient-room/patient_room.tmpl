@@ -1,0 +1,144 @@
+<div>
+<patient-navbar></patient-navbar>
+<div class="ui container with-patient-navbar">
+	<h1 class="ui header">
+		Good {{greeting}}, {{name}}.
+	</h1>
+
+	<div class="ui grid">
+		<div class="eight wide computer eight wide tablet sixteen wide mobile column">
+			<h2 class="ui header">
+				<i class="settings icon"></i>
+				<div class="content">
+					Room controls
+				</div>
+			</h2>
+
+			<a class="ui fluid link grey card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="grey idea icon"></i>
+							<div class="content">
+								Lights off
+								<div class="sub header">Press to turn on lights</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link yellow card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="yellow idea icon"></i>
+							<div class="content">
+								Lights on
+								<div class="sub header">Press to turn off lights</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link orange card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="orange sun icon"></i>
+							<div class="content">
+								Heating from 24&deg;C to 26&deg;C
+								<div class="sub header">Change temperature and view history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link blue card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="blue fa fa-snowflake-o icon"></i>
+							<div class="content">
+								Cooling from 26&deg;C to 24&deg;C
+								<div class="sub header">Change temperature and view history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<h2 class="ui header">
+				<i class="green plus icon"></i>
+				<div class="content">
+					Your health is OK
+				</div>
+			</h2>
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green heartbeat icon"></i>
+							<div class="content">
+								100 BPM
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green hotel icon"></i>
+							<div class="content">
+								In bed
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+
+
+			<a class="ui fluid link green card">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="green theme icon"></i>
+							<div class="content">
+								SpO<sub>2</sub>: 90%
+								<div class="sub header">View history</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+		</div>
+		<div class="eight wide computer eight wide tablet sixteen wide mobile column">
+			<h2 class="ui header">
+				<i class="calendar icon"></i>
+				<div class="content">
+					Your agenda
+				</div>
+			</h2>
+
+			<form class="ui form" @submit.prevent="Ping">
+				<div class="field">
+					<label>Ping this</label>
+					<input v-model="pingText" type="text" name="ping" placeholder="Ping text">
+				</div>
+				<button class="ui button" type="submit">Submit</button>
+			</form>
+
+		</div>
+	</div>
+
+</div>
+
+</div>

@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/1lann/smarter-hospital/core"
 	"github.com/1lann/smarter-hospital/store"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -40,10 +41,10 @@ func (c *Context) Info() interface{} {
 	var history []Event
 
 	err := store.C("hr_history").Find(bson.M{
-		"Time": bson.M{
+		"time": bson.M{
 			"$gt": time.Now().Add(-timeframe),
 		},
-	}).Sort("Time").All(&history)
+	}).Sort("time").All(&history)
 	if err != nil {
 		return err
 	}

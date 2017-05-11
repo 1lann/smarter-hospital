@@ -17,8 +17,6 @@ type Model struct {
 }
 
 func (p *Page) OnLoad() {
-	println("Hello, world!")
-
 	m := &Model{
 		Object: js.Global.Get("Object").New(),
 	}

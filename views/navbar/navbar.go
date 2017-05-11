@@ -73,10 +73,7 @@ func (m *Model) ToggleMenu() {
 }
 
 func init() {
-	templateData, err := views.Asset("navbar/navbar.tmpl")
-	if err != nil {
-		panic(err)
-	}
+	templateData := views.MustAsset("navbar/navbar.tmpl")
 
 	vue.NewComponent(func() interface{} {
 		m := &Model{Object: js.Global.Get("Object").New()}

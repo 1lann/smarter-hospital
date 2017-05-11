@@ -3,6 +3,8 @@
 package navbar
 
 import (
+	"time"
+
 	"github.com/1lann/smarter-hospital/views"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/jquery"
@@ -14,35 +16,10 @@ var jQuery = jquery.NewJQuery
 // Model represents the mode for the navigation bar.
 type Model struct {
 	*js.Object
-}
-
-// ToggleMenu toggles the navbar menu.
-func (m *Model) ToggleMenu() {
-	jQuery(".mobile-navbar.sidebar.menu").Call("sidebar", js.M{
-		"defaultTransition": js.M{
-			"computer": js.M{
-				"left":   "overlay",
-				"right":  "overlay",
-				"top":    "overlay",
-				"bottom": "overlay",
-			},
-			"mobile": js.M{
-				"left":   "overlay",
-				"right":  "overlay",
-				"top":    "overlay",
-				"bottom": "overlay",
-			},
-		},
-		"onHide": js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
-			jQuery(".pusher").AddClass("fullsize")
-			return nil
-		}),
-		"onHidden": js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
-			jQuery(".pusher").RemoveClass("fullsize")
-			return nil
-		}),
-	})
-	jQuery(".mobile-navbar.sidebar.menu").Call("sidebar", "toggle")
+	Name       string `js:"name"`
+	Date       string `js:"date"`
+	Time       string `js:"time"`
+	RoomNumber string `js:"roomNumber"`
 }
 
 // CallNurse sends an alert to the nurse.
@@ -51,13 +28,23 @@ func (m *Model) CallNurse() {
 }
 
 func init() {
-	templateData, err := views.Asset("patient-navbar/patient_navbar.tmpl")
-	if err != nil {
-		panic(err)
-	}
+	templateData := views.MustAsset("patient-navbar/patient_navbar.tmpl")
 
 	vue.NewComponent(func() interface{} {
 		m := &Model{Object: js.Global.Get("Object").New()}
+		m.RoomNumber = "314"
+		m.Name = views.GetUser().FirstName + " " + views.GetUser().LastName
+
+		m.Date = time.Now().Format("Monday, _2 Jan 2006")
+		m.Time = time.Now().Format("3:04:05 PM")
+
+		go func() {
+			for _ = range time.Tick(time.Second) {
+				m.Date = time.Now().Format("Monday, _2 Jan 2006")
+				m.Time = time.Now().Format("3:04:05 PM")
+			}
+		}()
+
 		return m
 	}, string(templateData)).Register("patient-navbar")
 }
