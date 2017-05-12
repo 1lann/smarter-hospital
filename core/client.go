@@ -53,7 +53,8 @@ func (c *Client) Emit(moduleID string, val interface{}) {
 }
 
 // Error emits an error event to the system when an error occurs with
-// a module's PollChanges. Do not use this for errors based on an action.
+// a module's PollEvents. Do not use this for errors based on an action,
+// only use it within PollEvents.
 func (c *Client) Error(moduleID string, err error) {
 	if c.client == nil {
 		log.Println("core: emit error failed: client not ready")
@@ -197,8 +198,13 @@ func (c *Client) actionHandler(client *rpc2.Client, action *Action,
 		return nil
 	}
 
-	// TODO: consider allowing a string response for text to speech or
-	// additional feedback.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("core: module action handler panic: " +
+				fmt.Sprint(r) + "\n" + string(debug.Stack()))
+		}
+	}()
+
 	results := module.module.MethodByName("HandleAction").Call([]reflect.Value{
 		reflect.ValueOf(c),
 		reflect.ValueOf(action.Value),

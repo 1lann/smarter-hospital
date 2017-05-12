@@ -2,9 +2,12 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -23,32 +26,44 @@ type decodeMessage struct {
 	Value json.RawMessage
 }
 
-type registeredHandler struct {
+type subscription struct {
 	valueType reflect.Type
 	handler   reflect.Value
 }
 
 // Server is the object for a WebSocket server.
 type Server struct {
-	upgrader       websocket.Upgrader
-	wsClients      map[string]*websocket.Conn
-	wsClientsMutex *sync.RWMutex
+	upgrader          websocket.Upgrader
+	wsClients         map[string]*websocket.Conn
+	subscribedClients map[string][]string
+	wsClientsMutex    *sync.RWMutex
+	subscribedMutex   *sync.RWMutex
 }
 
 // Client is the object for the WebSocket client connected to a WebSocket
 // server.
 type Client struct {
-	registeredHandlers map[string]registeredHandler
-	connectHandler     func()
-	disconnectHandler  func()
+	subscriptions     map[string]subscription
+	connectHandler    func()
+	disconnectHandler func()
+	conn              net.Conn
+}
+
+// SubscriptionMessage represents a subscription request from the client
+// to the server.
+type SubscriptionMessage struct {
+	Event     string
+	Subscribe bool
 }
 
 // NewServer returns a new server object, to be used on a server.
 func NewServer() *Server {
 	return &Server{
-		upgrader:       websocket.Upgrader{},
-		wsClients:      make(map[string]*websocket.Conn),
-		wsClientsMutex: new(sync.RWMutex),
+		upgrader:          websocket.Upgrader{},
+		wsClients:         make(map[string]*websocket.Conn),
+		subscribedClients: make(map[string][]string),
+		wsClientsMutex:    new(sync.RWMutex),
+		subscribedMutex:   new(sync.RWMutex),
 	}
 }
 
@@ -56,9 +71,9 @@ func NewServer() *Server {
 // not ever used for a server.
 func NewClient() *Client {
 	return &Client{
-		registeredHandlers: make(map[string]registeredHandler),
-		connectHandler:     func() {},
-		disconnectHandler:  func() {},
+		subscriptions:     make(map[string]subscription),
+		connectHandler:    func() {},
+		disconnectHandler: func() {},
 	}
 }
 
@@ -79,6 +94,72 @@ func (s *Server) Handle(r *http.Request, wr http.ResponseWriter) {
 	}
 	s.wsClients[r.RemoteAddr] = conn
 	s.wsClientsMutex.Unlock()
+
+	go func(id string, conn *websocket.Conn) {
+		for {
+			var sub SubscriptionMessage
+			err := conn.ReadJSON(&sub)
+			if err != nil {
+				s.subscribedMutex.Lock()
+				for k, clients := range s.subscribedClients {
+					var i int
+					found := false
+					for i = 0; i < len(clients); i++ {
+						if clients[i] == id {
+							found = true
+							break
+						}
+					}
+
+					if found {
+						clients[i] = clients[len(clients)-1]
+						clients = clients[:len(clients)-1]
+						s.subscribedClients[k] = clients
+					}
+				}
+				s.subscribedMutex.Unlock()
+
+				s.wsClientsMutex.Lock()
+				delete(s.wsClients, id)
+				s.wsClientsMutex.Unlock()
+				conn.Close()
+				return
+			}
+
+			s.subscribedMutex.Lock()
+			if sub.Subscribe {
+				alreadySubscribed := false
+				for _, client := range s.subscribedClients[sub.Event] {
+					if client == id {
+						alreadySubscribed = true
+						break
+					}
+				}
+
+				if !alreadySubscribed {
+					s.subscribedClients[sub.Event] = append(
+						s.subscribedClients[sub.Event], id)
+				}
+			} else {
+				var i int
+				found := false
+				clients := s.subscribedClients[sub.Event]
+				for i = 0; i < len(clients); i++ {
+					if clients[i] == id {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					clients[i] = clients[len(clients)-1]
+					clients = clients[:len(clients)-1]
+					s.subscribedClients[sub.Event] = clients
+				}
+			}
+			s.subscribedMutex.Unlock()
+		}
+	}(r.RemoteAddr, conn)
 }
 
 // Emit sends a WebSocket message to all connected WebSocket clients.
@@ -91,51 +172,42 @@ func (s *Server) Emit(event string, msg interface{}) {
 		conn *websocket.Conn
 	}
 
-	var flaggedForRemoval []string
 	var connections []connection
 
+	s.subscribedMutex.RLock()
 	s.wsClientsMutex.RLock()
-	for id, conn := range s.wsClients {
+	clients := s.subscribedClients[event]
+	for _, client := range clients {
 		connections = append(connections, connection{
-			id:   id,
-			conn: conn,
+			id:   client,
+			conn: s.wsClients[client],
 		})
 	}
 	s.wsClientsMutex.RUnlock()
+	s.subscribedMutex.RUnlock()
 
 	for _, connPair := range connections {
-		data, err := json.Marshal(encodeMessage{
+		err := connPair.conn.WriteJSON(encodeMessage{
 			Event: event,
 			Value: msg,
 		})
 		if err != nil {
-			log.Println("ws: json encode error:", err)
+			log.Println("ws: write error:", err)
 			continue
 		}
-
-		err = connPair.conn.WriteMessage(websocket.TextMessage, data)
-		if err != nil {
-			flaggedForRemoval = append(flaggedForRemoval, connPair.id)
-		}
 	}
-
-	s.wsClientsMutex.Lock()
-	for _, id := range flaggedForRemoval {
-		if _, found := s.wsClients[id]; found {
-			delete(s.wsClients, id)
-		}
-	}
-	s.wsClientsMutex.Unlock()
 }
 
-// HandleEvent registers an event handler to handle an incoming WebSocket
-// message from the server. To be only used on the client.
-func (c *Client) HandleEvent(event string, handler interface{}) {
-	panicPrefix := "core: register handler: "
+// Subscribe subscribes to and registers an event handler to handle an incoming
+// WebSocket message from the server. All subscriptions are reset when the
+// client disconnects, thus this should only be used in HandleConnect.
+// To be only used on the client.
+func (c *Client) Subscribe(event string, handler interface{}) {
+	panicPrefix := "core: subscribe: "
 
-	if _, found := c.registeredHandlers[event]; found {
-		panic(panicPrefix + "handler receiver for event \"" + event +
-			"\" already registered")
+	if _, found := c.subscriptions[event]; found {
+		panic(panicPrefix + "subscription for event \"" + event +
+			"\" already subscribed")
 	}
 
 	handlerType := reflect.TypeOf(handler)
@@ -149,7 +221,7 @@ func (c *Client) HandleEvent(event string, handler interface{}) {
 			"instead got " + strconv.Itoa(handlerType.NumIn()))
 	}
 
-	c.registeredHandlers[event] = registeredHandler{
+	c.subscriptions[event] = subscription{
 		valueType: handlerType.In(0),
 		handler:   reflect.ValueOf(handler),
 	}
@@ -158,6 +230,12 @@ func (c *Client) HandleEvent(event string, handler interface{}) {
 		panic(panicPrefix + "expected no return arguments, " +
 			"instead got " + strconv.Itoa(handlerType.NumOut()))
 	}
+
+	data, _ := json.Marshal(SubscriptionMessage{
+		Event:     event,
+		Subscribe: true,
+	})
+	c.conn.Write(data)
 }
 
 // HandleConnect calls the provided handler when the client successfully connects
@@ -177,47 +255,81 @@ func (c *Client) HandleDisconnect(handler func()) {
 // events from. Connect runs a goroutine that automatically maintains the
 // connection, and is non-blocking.
 func (c *Client) Connect(url string) {
-	for {
-		conn, err := jsws.Dial(url)
-		if err != nil {
-			println("ws connect:", err)
-			time.Sleep(time.Second * 3)
-			continue
-		}
-
-		buffer := make([]byte, 100000)
-
+	go func() {
 		for {
-			n, err := conn.Read(buffer)
+			conn, err := jsws.Dial(url)
+			c.conn = conn
 			if err != nil {
-				println("ws: error reading:", err)
-				break
-			}
-
-			var msg decodeMessage
-			err = json.Unmarshal(buffer[:n], &msg)
-			if err != nil {
-				println("ws: could not decode json:", err)
+				println("ws connect:", err)
+				time.Sleep(time.Second * 3)
 				continue
 			}
 
-			handler, found := c.registeredHandlers[msg.Event]
-			if !found {
-				println("ws: could not find handler for event:", msg.Event)
-				continue
-			}
+			go func(c *Client) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Println("ws: HandleConnect panic: " +
+							fmt.Sprint(r) + "\n" + string(debug.Stack()))
+					}
+				}()
 
-			value := reflect.New(handler.valueType)
-			err = json.Unmarshal([]byte(msg.Value), value.Interface())
-			if err != nil {
-				println("ws: could not decode value json for event \""+
-					msg.Event+"\":", err)
-				continue
-			}
+				c.connectHandler()
+			}(c)
+			buffer := make([]byte, 100000)
 
-			go handler.handler.Call([]reflect.Value{value.Elem()})
+			for {
+				n, err := conn.Read(buffer)
+				if err != nil {
+					println("ws: error reading:", err)
+					break
+				}
+
+				var msg decodeMessage
+				err = json.Unmarshal(buffer[:n], &msg)
+				if err != nil {
+					println("ws: could not decode json:", err)
+					continue
+				}
+
+				handler, found := c.subscriptions[msg.Event]
+				if !found {
+					println("ws: could not find handler for event:", msg.Event)
+					continue
+				}
+
+				value := reflect.New(handler.valueType)
+				err = json.Unmarshal([]byte(msg.Value), value.Interface())
+				if err != nil {
+					println("ws: could not decode value json for event \""+
+						msg.Event+"\":", err)
+					continue
+				}
+
+				go func(handler subscription, value reflect.Value) {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Println("ws: subscription handler for for \"" +
+								msg.Event + "\" panic: " + fmt.Sprint(r) +
+								"\n" + string(debug.Stack()))
+						}
+					}()
+				}(handler, value)
+
+				handler.handler.Call([]reflect.Value{value.Elem()})
+			}
+			conn.Close()
+			c.subscriptions = make(map[string]subscription)
+
+			func(c *Client) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Println("ws: HandleDisconnect panic: " +
+							fmt.Sprint(r) + "\n" + string(debug.Stack()))
+					}
+				}()
+
+				c.disconnectHandler()
+			}(c)
 		}
-		conn.Close()
-	}
-
+	}()
 }

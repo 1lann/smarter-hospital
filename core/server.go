@@ -2,9 +2,11 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -78,11 +80,7 @@ func (s *Server) disconnect(moduleID string) {
 
 	for moduleID, connectedClient := range s.clients {
 		if client == connectedClient {
-			dcHandler, found := registeredDisconnect[moduleID]
-			if found {
-				go dcHandler()
-			}
-
+			go disconnectHandler(moduleID)
 			delete(s.clients, moduleID)
 		}
 	}
@@ -134,9 +132,6 @@ func (s *Server) checkHealth(moduleID string, client *rpc2.Client) {
 		s.disconnect(moduleID)
 		return
 	}
-
-	log.Println("core: debug: health check for \""+moduleID+"\" successful "+
-		"with latency:", latency.Nanoseconds()/1000000, "ms")
 }
 
 // NewServer starts the rpc2 server and listens asynchronously on the provided
@@ -167,12 +162,8 @@ func NewServer(addr string) (*Server, error) {
 	s.server.OnDisconnect(func(client *rpc2.Client) {
 		s.clientsMutex.Lock()
 		for moduleID, connectedClient := range s.clients {
+			go disconnectHandler(moduleID)
 			if client == connectedClient {
-				dcHandler, found := registeredDisconnect[moduleID]
-				if found {
-					go dcHandler()
-				}
-
 				delete(s.clients, moduleID)
 			}
 		}
@@ -223,10 +214,7 @@ func (s *Server) handleHandshake(client *rpc2.Client, req *HandshakeRequest,
 			return nil
 		}
 
-		connectHandler, found := registeredConnect[moduleID]
-		if found {
-			go connectHandler()
-		}
+		go connectHandler(moduleID)
 
 		if module.registration.settingsType != nil {
 			settings[moduleID] = module.module.Elem().
@@ -293,6 +281,14 @@ func (s *Server) handleEvent(client *rpc2.Client, event *Event) {
 			"event:", event.ModuleID)
 		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("core: handle event for \"" + event.ModuleID +
+				"\" panic: " + fmt.Sprint(r) + "\n" +
+				string(debug.Stack()))
+		}
+	}()
 
 	module.module.MethodByName("HandleEvent").
 		Call([]reflect.Value{reflect.ValueOf(event.Value)})

@@ -11,16 +11,9 @@ import (
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
 
+	"github.com/1lann/smarter-hospital/modules/lights"
 	"github.com/1lann/smarter-hospital/modules/ping"
 )
-
-type Model struct {
-	*js.Object
-	Name     string `js:"name"`
-	Greeting string `js:"greeting"`
-	PingText string `js:"pingText"`
-	lastPing time.Time
-}
 
 func (m *Model) Ping() {
 	go func() {
@@ -35,6 +28,18 @@ func (m *Model) Ping() {
 			return
 		}
 		println("Successful ping!")
+	}()
+}
+
+func (m *Model) SetLight(num int) {
+	go func() {
+		println("Setting light to", num)
+		_, err := views.Do("lights1", lights.Action{
+			State: num,
+		})
+		if err != nil {
+			println(":(", err.Error())
+		}
 	}()
 }
 
@@ -55,10 +60,12 @@ func (p *Page) OnLoad() {
 	m := &Model{
 		Object: js.Global.Get("Object").New(),
 	}
+	p.model = m
 
 	m.Name = views.GetUser().FirstName + " " + views.GetUser().LastName
 	m.Greeting = getGreeting()
 	m.PingText = ""
+	m.LightOn = false
 
 	go func() {
 		for _ = range time.Tick(time.Minute) {
@@ -67,12 +74,20 @@ func (p *Page) OnLoad() {
 	}()
 
 	views.ModelWithTemplate(m, "patient-room/patient_room.tmpl")
+}
 
-	client := ws.NewClient()
-	client.HandleEvent("pong", func(msg string) {
+func (p *Page) OnConnect(client *ws.Client) {
+	client.Subscribe("pong", func(msg string) {
 		println("Received pong:", msg)
-		println("Latency:", time.Since(m.lastPing).String())
+		println("Latency:", time.Since(p.model.lastPing).String())
 	})
-	// TODO: For the shits and giggles
-	client.Connect("ws://127.0.0.1:8080/ws")
+
+	client.Subscribe("lights1", func(state int) {
+		println("got lights")
+		if state > 0 {
+			p.model.LightOn = true
+		} else {
+			p.model.LightOn = false
+		}
+	})
 }

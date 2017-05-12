@@ -14,6 +14,7 @@ import (
 	"github.com/1lann/smarter-hospital/views"
 	_ "github.com/1lann/smarter-hospital/views/imports"
 
+	"github.com/1lann/smarter-hospital/modules/lights"
 	_ "github.com/1lann/smarter-hospital/modules/ping"
 )
 
@@ -31,6 +32,9 @@ func main() {
 	}
 
 	core.SetupModule("ping", "ping1")
+	core.SetupModule("lights", "lights1", lights.Settings{
+		Pin: 11,
+	})
 
 	wsServer := ws.NewServer()
 	logic.Register(wsServer)

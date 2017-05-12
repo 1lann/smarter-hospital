@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/1lann/smarter-hospital/core"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 // Some of the possible error values from Do()
@@ -22,8 +23,15 @@ func Do(moduleID string, val interface{}) (string, error) {
 		return "", err
 	}
 
-	// TODO: do not hardcode
-	resp, err := http.Post("http://127.0.0.1:8080/action/"+moduleID,
+	var scheme string
+	if js.Global.Get("location").Get("protocol").String() == "https:" {
+		scheme = "https://"
+	} else {
+		scheme = "http://"
+	}
+
+	resp, err := http.Post(scheme+
+		js.Global.Get("location").Get("host").String()+"/action/"+moduleID,
 		"application/json", bytes.NewReader(data))
 	if err != nil {
 		return "", err

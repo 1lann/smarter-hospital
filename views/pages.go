@@ -1,6 +1,9 @@
 package views
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/1lann/smarter-hospital/ws"
+	"github.com/gopherjs/gopherjs/js"
+)
 
 // Message represents a message from a WebSocket.
 type Message struct {
@@ -12,8 +15,9 @@ type Message struct {
 type Page interface {
 	OnLoad()
 	OnUnload()
-	OnMessage(msg Message)
+	OnConnect(client *ws.Client)
 	Title() string
+	Subscriptions() []string
 }
 
 // User represents information about the current user.
@@ -57,9 +61,21 @@ func Run() {
 		panic("page not found!")
 	}
 
-	page.OnLoad()
+	client := ws.NewClient()
+	var scheme string
+	if js.Global.Get("location").Get("protocol").String() == "https:" {
+		scheme = "wss://"
+	} else {
+		scheme = "ws://"
+	}
 
-	// TODO: startup websocket system
+	client.HandleConnect(func() {
+		page.OnConnect(client)
+	})
+	client.Connect(scheme + js.Global.Get("location").Get("host").String() +
+		"/ws")
+
+	page.OnLoad()
 
 	select {}
 }

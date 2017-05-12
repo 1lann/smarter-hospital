@@ -206,21 +206,7 @@ var _patientRoomPatient_roomTmpl = []byte(`<div>
 				</div>
 			</h2>
 
-			<a class="ui fluid link grey card">
-				<div class="ui padded grid">
-					<div class="sixteen wide column">
-						<h3 class="ui header">
-							<i class="grey idea icon"></i>
-							<div class="content">
-								Lights off
-								<div class="sub header">Press to turn on lights</div>
-							</div>
-						</h3>
-					</div>
-				</div>
-			</a>
-
-			<a class="ui fluid link yellow card">
+			<a v-if="lightOn" class="ui fluid link yellow card" @click="SetLight(0)">
 				<div class="ui padded grid">
 					<div class="sixteen wide column">
 						<h3 class="ui header">
@@ -228,6 +214,19 @@ var _patientRoomPatient_roomTmpl = []byte(`<div>
 							<div class="content">
 								Lights on
 								<div class="sub header">Press to turn off lights</div>
+							</div>
+						</h3>
+					</div>
+				</div>
+			</a>
+			<a v-else class="ui fluid link grey card" @click="SetLight(100)">
+				<div class="ui padded grid">
+					<div class="sixteen wide column">
+						<h3 class="ui header">
+							<i class="grey idea icon"></i>
+							<div class="content">
+								Lights off
+								<div class="sub header">Press to turn on lights</div>
 							</div>
 						</h3>
 					</div>
@@ -346,7 +345,7 @@ func patientRoomPatient_roomTmpl() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "patient-room/patient_room.tmpl", size: 3520, mode: os.FileMode(420), modTime: time.Unix(1494437326, 0)}
+	info := bindataFileInfo{name: "patient-room/patient_room.tmpl", size: 3585, mode: os.FileMode(420), modTime: time.Unix(1494496164, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

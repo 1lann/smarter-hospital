@@ -1,14 +1,17 @@
 package core
 
 import (
+	"fmt"
+	"log"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 )
 
 var registeredLogic = make(map[string]logicInfo)
 var moduleToLogic = make(map[string][]string)
-var registeredDisconnect = make(map[string]func())
-var registeredConnect = make(map[string]func())
+var connectHandler = func(moduleID string) {}
+var disconnectHandler = func(moduleID string) {}
 
 type logicInfo struct {
 	moduleIDs    []string
@@ -16,6 +19,14 @@ type logicInfo struct {
 }
 
 func (l logicInfo) trigger(s *Server) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("core: logic handler for \"" +
+				l.logicManager.Type().String() + "\" panic: " + fmt.Sprint(r) +
+				"\n" + string(debug.Stack()))
+		}
+	}()
+
 	arguments := []reflect.Value{reflect.ValueOf(s)}
 	for _, moduleID := range l.moduleIDs {
 		arguments = append(arguments, setupModules[moduleID].module.Elem())
@@ -24,26 +35,16 @@ func (l logicInfo) trigger(s *Server) {
 	l.logicManager.MethodByName("Handle").Call(arguments)
 }
 
-// RegisterConnect registers a callback handler whenever the specified
-// module connects (or reconnects) to the system. Only used for servers.
-func RegisterConnect(moduleID string, handler func()) {
-	if _, found := registeredConnect[moduleID]; found {
-		panic("core: register connect: handler already exists for module: " +
-			moduleID)
-	}
-
-	registeredConnect[moduleID] = handler
+// RegisterConnect registers a callback handler whenever a module connects
+// (or reconnects) to the system. Used only for servers.
+func RegisterConnect(handler func(moduleID string)) {
+	connectHandler = handler
 }
 
-// RegisterDisconnect registers a callback handler whenever the specified
-// module disconnects from the system. Only used for servers.
-func RegisterDisconnect(moduleID string, handler func()) {
-	if _, found := registeredDisconnect[moduleID]; found {
-		panic("core: register disconnect: handler already exists for module: " +
-			moduleID)
-	}
-
-	registeredConnect[moduleID] = handler
+// RegisterDisconnect registers a callback handler whenever a
+// module disconnects from the system. Used only for servers.
+func RegisterDisconnect(handler func(moduleID string)) {
+	disconnectHandler = handler
 }
 
 // RegisterEventLogic registers a logic handler which performs automated
@@ -76,7 +77,10 @@ func RegisterEventLogic(moduleIDs []string, logicManager interface{}) {
 	}
 
 	for i := 2; i < len(moduleIDs)+2; i++ {
-		module := setupModules[moduleIDs[i-2]]
+		module, found := setupModules[moduleIDs[i-2]]
+		if !found {
+			panic(panicPrefix + "module ID not found: " + moduleIDs[i-2])
+		}
 		if !handle.Type.In(i).AssignableTo(module.module.Elem().Type()) {
 			panic(panicPrefix + "argument " + strconv.Itoa(i) + " must be " +
 				"assignable to matching module type: " +
