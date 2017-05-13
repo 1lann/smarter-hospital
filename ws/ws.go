@@ -44,6 +44,7 @@ type Server struct {
 // server.
 type Client struct {
 	subscriptions     map[string]subscription
+	subscribedMutex   *sync.Mutex
 	connectHandler    func()
 	disconnectHandler func()
 	conn              net.Conn
@@ -72,13 +73,14 @@ func NewServer() *Server {
 func NewClient() *Client {
 	return &Client{
 		subscriptions:     make(map[string]subscription),
+		subscribedMutex:   new(sync.Mutex),
 		connectHandler:    func() {},
 		disconnectHandler: func() {},
 	}
 }
 
 // Handle is the handler to be called by the HTTP server to handle
-// for websocket connections.
+// for WebSocket connections.
 func (s *Server) Handle(r *http.Request, wr http.ResponseWriter) {
 	conn, err := s.upgrader.Upgrade(wr, r, nil)
 	if err != nil {
@@ -95,55 +97,18 @@ func (s *Server) Handle(r *http.Request, wr http.ResponseWriter) {
 	s.wsClients[r.RemoteAddr] = conn
 	s.wsClientsMutex.Unlock()
 
-	go func(id string, conn *websocket.Conn) {
-		for {
-			var sub SubscriptionMessage
-			err := conn.ReadJSON(&sub)
-			if err != nil {
-				s.subscribedMutex.Lock()
-				for k, clients := range s.subscribedClients {
-					var i int
-					found := false
-					for i = 0; i < len(clients); i++ {
-						if clients[i] == id {
-							found = true
-							break
-						}
-					}
+	go s.handleConnection(r.RemoteAddr, conn)
+}
 
-					if found {
-						clients[i] = clients[len(clients)-1]
-						clients = clients[:len(clients)-1]
-						s.subscribedClients[k] = clients
-					}
-				}
-				s.subscribedMutex.Unlock()
-
-				s.wsClientsMutex.Lock()
-				delete(s.wsClients, id)
-				s.wsClientsMutex.Unlock()
-				conn.Close()
-				return
-			}
-
+func (s *Server) handleConnection(id string, conn *websocket.Conn) {
+	for {
+		var sub SubscriptionMessage
+		err := conn.ReadJSON(&sub)
+		if err != nil {
 			s.subscribedMutex.Lock()
-			if sub.Subscribe {
-				alreadySubscribed := false
-				for _, client := range s.subscribedClients[sub.Event] {
-					if client == id {
-						alreadySubscribed = true
-						break
-					}
-				}
-
-				if !alreadySubscribed {
-					s.subscribedClients[sub.Event] = append(
-						s.subscribedClients[sub.Event], id)
-				}
-			} else {
+			for k, clients := range s.subscribedClients {
 				var i int
 				found := false
-				clients := s.subscribedClients[sub.Event]
 				for i = 0; i < len(clients); i++ {
 					if clients[i] == id {
 						found = true
@@ -154,12 +119,51 @@ func (s *Server) Handle(r *http.Request, wr http.ResponseWriter) {
 				if found {
 					clients[i] = clients[len(clients)-1]
 					clients = clients[:len(clients)-1]
-					s.subscribedClients[sub.Event] = clients
+					s.subscribedClients[k] = clients
 				}
 			}
 			s.subscribedMutex.Unlock()
+
+			s.wsClientsMutex.Lock()
+			delete(s.wsClients, id)
+			s.wsClientsMutex.Unlock()
+			conn.Close()
+			return
 		}
-	}(r.RemoteAddr, conn)
+
+		s.subscribedMutex.Lock()
+		if sub.Subscribe {
+			alreadySubscribed := false
+			for _, client := range s.subscribedClients[sub.Event] {
+				if client == id {
+					alreadySubscribed = true
+					break
+				}
+			}
+
+			if !alreadySubscribed {
+				s.subscribedClients[sub.Event] = append(
+					s.subscribedClients[sub.Event], id)
+			}
+		} else {
+			var i int
+			found := false
+			clients := s.subscribedClients[sub.Event]
+			for i = 0; i < len(clients); i++ {
+				if clients[i] == id {
+					found = true
+					break
+				}
+			}
+
+			if found {
+				clients[i] = clients[len(clients)-1]
+				clients = clients[:len(clients)-1]
+				s.subscribedClients[sub.Event] = clients
+			}
+		}
+		s.subscribedMutex.Unlock()
+	}
 }
 
 // Emit sends a WebSocket message to all connected WebSocket clients.
@@ -203,12 +207,7 @@ func (s *Server) Emit(event string, msg interface{}) {
 // client disconnects, thus this should only be used in HandleConnect.
 // To be only used on the client.
 func (c *Client) Subscribe(event string, handler interface{}) {
-	panicPrefix := "core: subscribe: "
-
-	if _, found := c.subscriptions[event]; found {
-		panic(panicPrefix + "subscription for event \"" + event +
-			"\" already subscribed")
-	}
+	panicPrefix := "ws: subscribe: "
 
 	handlerType := reflect.TypeOf(handler)
 
@@ -221,19 +220,50 @@ func (c *Client) Subscribe(event string, handler interface{}) {
 			"instead got " + strconv.Itoa(handlerType.NumIn()))
 	}
 
-	c.subscriptions[event] = subscription{
-		valueType: handlerType.In(0),
-		handler:   reflect.ValueOf(handler),
-	}
-
 	if handlerType.NumOut() != 0 {
 		panic(panicPrefix + "expected no return arguments, " +
 			"instead got " + strconv.Itoa(handlerType.NumOut()))
 	}
 
+	c.subscribedMutex.Lock()
+	if _, found := c.subscriptions[event]; found {
+		panic(panicPrefix + "subscription for event \"" + event +
+			"\" already exists")
+	}
+
+	c.subscriptions[event] = subscription{
+		valueType: handlerType.In(0),
+		handler:   reflect.ValueOf(handler),
+	}
+	c.subscribedMutex.Unlock()
+
 	data, _ := json.Marshal(SubscriptionMessage{
 		Event:     event,
 		Subscribe: true,
+	})
+	c.conn.Write(data)
+}
+
+// Unsubscribe unsubscribes from a subscribed event. Disconnecting
+// automatically unsubscribes from everything, as events and actions
+// do not have guaranteed delivery.
+func (c *Client) Unsubscribe(event string) {
+	panicPrefix := "ws: unsubscribe: "
+
+	c.subscribedMutex.Lock()
+	if _, found := c.subscriptions[event]; !found {
+		println(panicPrefix + "subscription for event \"" + event +
+			"\" does not exist")
+		c.subscribedMutex.Unlock()
+		return
+	}
+
+	delete(c.subscriptions, event)
+	c.subscribedMutex.Unlock()
+
+	data, _ := json.Marshal(SubscriptionMessage{
+		Event:     event,
+		Subscribe: false,
 	})
 	c.conn.Write(data)
 }
@@ -308,7 +338,7 @@ func (c *Client) Connect(url string) {
 				go func(handler subscription, value reflect.Value) {
 					defer func() {
 						if r := recover(); r != nil {
-							log.Println("ws: subscription handler for for \"" +
+							println("ws: subscription handler for for \"" +
 								msg.Event + "\" panic: " + fmt.Sprint(r) +
 								"\n" + string(debug.Stack()))
 						}
@@ -323,7 +353,7 @@ func (c *Client) Connect(url string) {
 			func(c *Client) {
 				defer func() {
 					if r := recover(); r != nil {
-						log.Println("ws: HandleDisconnect panic: " +
+						println("ws: HandleDisconnect panic: " +
 							fmt.Sprint(r) + "\n" + string(debug.Stack()))
 					}
 				}()

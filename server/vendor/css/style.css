@@ -30,3 +30,11 @@ html, body {
 		padding-top: 60px;
 	}
 }
+
+.patient-navbar .ui.header[data-tooltip]:hover:before {
+	margin-left: -8px !important;
+}
+
+.patient-navbar .ui.header[data-tooltip]:hover:after {
+	margin-left: -10px !important;
+}

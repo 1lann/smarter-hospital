@@ -14,10 +14,10 @@ type Message struct {
 // Page represents a page.
 type Page interface {
 	OnLoad()
-	OnUnload()
+	OnUnload(client *ws.Client)
 	OnConnect(client *ws.Client)
+	OnDisconnect()
 	Title() string
-	Subscriptions() []string
 }
 
 // User represents information about the current user.
@@ -71,6 +71,9 @@ func Run() {
 
 	client.HandleConnect(func() {
 		page.OnConnect(client)
+	})
+	client.HandleDisconnect(func() {
+		page.OnDisconnect()
 	})
 	client.Connect(scheme + js.Global.Get("location").Get("host").String() +
 		"/ws")

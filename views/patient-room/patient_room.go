@@ -14,11 +14,12 @@ func init() {
 // Model represents the Vue.js model.
 type Model struct {
 	*js.Object
-	Name     string `js:"name"`
-	Greeting string `js:"greeting"`
-	PingText string `js:"pingText"`
-	LightOn  bool   `js:"lightOn"`
-	lastPing time.Time
+	Name      string `js:"name"`
+	Greeting  string `js:"greeting"`
+	PingText  string `js:"pingText"`
+	LightOn   bool   `js:"lightOn"`
+	Connected bool   `js:"connected"`
+	lastPing  time.Time
 }
 
 // Page represents the room page.
@@ -30,8 +31,4 @@ type Page struct {
 // Title ...
 func (p *Page) Title() string {
 	return "Patient Room"
-}
-
-func (p *Page) Subscriptions() []string {
-	return []string{"page1"}
 }

@@ -1,11 +1,14 @@
 <div>
 	<div class="ui top fixed menu patient-navbar">
 		<div class="ui header item on-mobile">
+			<span>
+				<i class="icon" :class="{'circle green': connected, 'plug red': !connected}" style="margin-right:0px;"></i>
+			</span>
 			{{name}}
 		</div>
 
 		<div class="right item on-mobile">
-			<div class="ui red labeled icon button" @click="CallNurse">
+			<div class="ui red labeled icon button" @click="CallNurse" style="margin-top:-5px;">
 				<i class="doctor icon"></i>
 				Call Nurse
 			</div>
@@ -13,10 +16,13 @@
 
 		<div class="ui container on-desktop" style="height:70px;">
 			<div class="left menu">
-				<div class="ui header item">
-					<div class="content">
-						{{time}}
-						<div class="sub header">{{date}}</div>
+				<div class="item">
+					<div class="ui header" :data-tooltip="connected ? 'Connected to system, all information displayed is in real time.' : 'Disconnected from system, actions may not work, information will not be updated.'" data-position="bottom left">
+						<i class="icon" :class="{'circle green': connected, 'plug red': !connected}"></i>
+						<div class="content">
+							{{time}}
+							<div class="sub header">{{date}}</div>
+						</div>
 					</div>
 				</div>
 				<div class="ui header item">

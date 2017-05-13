@@ -8,7 +8,6 @@ import (
 	"github.com/1lann/smarter-hospital/views"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/jquery"
-	"github.com/oskca/gopherjs-vue"
 )
 
 var jQuery = jquery.NewJQuery
@@ -20,6 +19,7 @@ type Model struct {
 	Date       string `js:"date"`
 	Time       string `js:"time"`
 	RoomNumber string `js:"roomNumber"`
+	Connected  bool   `js:"connected"`
 }
 
 // CallNurse sends an alert to the nurse.
@@ -28,9 +28,7 @@ func (m *Model) CallNurse() {
 }
 
 func init() {
-	templateData := views.MustAsset("patient-navbar/patient_navbar.tmpl")
-
-	vue.NewComponent(func() interface{} {
+	views.ComponentWithTemplate(func() interface{} {
 		m := &Model{Object: js.Global.Get("Object").New()}
 		m.RoomNumber = "314"
 		m.Name = views.GetUser().FirstName + " " + views.GetUser().LastName
@@ -46,5 +44,6 @@ func init() {
 		}()
 
 		return m
-	}, string(templateData)).Register("patient-navbar")
+	}, "patient-navbar/patient_navbar.tmpl", "connected").
+		Register("patient-navbar")
 }

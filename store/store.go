@@ -21,7 +21,7 @@ var session *Session
 // Connect attempts a connection to the database with the provided connection
 // options, and returns a session if successful.
 func Connect(options ConnectOpts) error {
-	s, err := mgo.Dial("127.0.0.1")
+	s, err := mgo.Dial(options.Address)
 	if err != nil {
 		return err
 	}

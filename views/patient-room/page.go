@@ -66,6 +66,7 @@ func (p *Page) OnLoad() {
 	m.Greeting = getGreeting()
 	m.PingText = ""
 	m.LightOn = false
+	m.Connected = false
 
 	go func() {
 		for _ = range time.Tick(time.Minute) {
@@ -74,6 +75,13 @@ func (p *Page) OnLoad() {
 	}()
 
 	views.ModelWithTemplate(m, "patient-room/patient_room.tmpl")
+}
+
+func (p *Page) OnUnload(client *ws.Client) {
+	if client != nil {
+		client.Unsubscribe("pong")
+		client.Unsubscribe("lights1")
+	}
 }
 
 func (p *Page) OnConnect(client *ws.Client) {
@@ -90,4 +98,10 @@ func (p *Page) OnConnect(client *ws.Client) {
 			p.model.LightOn = false
 		}
 	})
+
+	p.model.Connected = true
+}
+
+func (p *Page) OnDisconnect() {
+	p.model.Connected = false
 }
