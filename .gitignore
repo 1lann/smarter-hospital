@@ -2,4 +2,4 @@
 /server/server
 /server/vendor/js/views.min.js
 /server/vendor/js/views.min.js.map
-/views/assets
+/views/assets.go
