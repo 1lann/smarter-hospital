@@ -1,1 +1,5 @@
 .DS_Store
+/server/server
+/server/vendor/js/views.min.js
+/server/vendor/js/views.min.js.map
+/views/assets
