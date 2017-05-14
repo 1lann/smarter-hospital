@@ -12,6 +12,7 @@ var registeredLogic = make(map[string]logicInfo)
 var moduleToLogic = make(map[string][]string)
 var connectHandler = func(moduleID string) {}
 var disconnectHandler = func(moduleID string) {}
+var eventHandler = func(moduleID string, event interface{}) {}
 
 type logicInfo struct {
 	moduleIDs    []string
@@ -96,4 +97,10 @@ func RegisterEventLogic(moduleIDs []string, logicManager interface{}) {
 	for _, moduleID := range moduleIDs {
 		moduleToLogic[moduleID] = append(moduleToLogic[moduleID], id)
 	}
+}
+
+// RegisterEventHandler registers an event handler that will be called upon
+// every module event in the system.
+func RegisterEventHandler(handler func(moduleID string, event interface{})) {
+	eventHandler = handler
 }

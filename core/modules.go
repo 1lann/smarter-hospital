@@ -3,10 +3,16 @@ package core
 import (
 	"encoding/gob"
 	"errors"
+	"fmt"
+	"log"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 )
+
+// ErrNotFound is returned if a value could not be found.
+var ErrNotFound = errors.New("core: not found")
 
 var registeredModules = make(map[string]registeredModule)
 var setupModules = make(map[string]*setupModule)
@@ -20,6 +26,7 @@ type registeredModule struct {
 	hasInfoProvider  bool
 	hasActionHandler bool
 	hasPollEvents    bool
+	hasInitHandler   bool
 }
 
 type setupModule struct {
@@ -143,6 +150,22 @@ func RegisterModule(module interface{}) {
 		register.hasPollEvents = true
 	}
 
+	initHandler := moduleValue.MethodByName("Init")
+	if initHandler.IsValid() {
+		handlerType := initHandler.Type()
+		if handlerType.NumIn() != 0 {
+			panic(panicPrefix + "Init: expected no input arguments, " +
+				"instead got " + strconv.Itoa(handlerType.NumIn()))
+		}
+
+		if handlerType.NumOut() != 0 {
+			panic(panicPrefix + "Init: expected no return arguments, " +
+				"instead got " + strconv.Itoa(handlerType.NumOut()))
+		}
+
+		register.hasInitHandler = true
+	}
+
 	if _, found := registeredModules[moduleName]; found {
 		panic(panicPrefix + "module already registered")
 	}
@@ -179,6 +202,10 @@ func SetupModule(moduleName string, id string, settings ...interface{}) {
 			Set(reflect.ValueOf(settings[0]))
 	}
 
+	if module.hasInitHandler {
+		newModule.MethodByName("Init").Call([]reflect.Value{})
+	}
+
 	newModule.Elem().FieldByName("ID").SetString(id)
 
 	setupModules[id] = &setupModule{
@@ -187,20 +214,40 @@ func SetupModule(moduleName string, id string, settings ...interface{}) {
 	}
 }
 
-// ErrNoSuchAction is returned if no such action value is registered when
-// calling ActionValue.
-var ErrNoSuchAction = errors.New("core: no such action")
-
 // ActionType returns the Action type given the ID of a module.
 func ActionType(id string) (reflect.Type, error) {
 	value, found := setupModules[id]
 	if !found {
-		return nil, ErrNoSuchAction
+		return nil, ErrNotFound
 	}
 
 	if value.registration.actionType == nil {
-		return nil, ErrNoSuchAction
+		return nil, ErrNotFound
 	}
 
 	return value.registration.actionType, nil
+}
+
+// Info returns the information value given the ID of a module.
+func Info(id string) (result interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("core: info panic: " +
+				fmt.Sprint(r) + "\n" + string(debug.Stack()))
+			err = errors.New(fmt.Sprint(r))
+		}
+
+	}()
+
+	value, found := setupModules[id]
+	if !found {
+		return nil, ErrNotFound
+	}
+
+	if !value.registration.hasInfoProvider {
+		return nil, ErrNotFound
+	}
+
+	callResult := value.module.MethodByName("Info").Call([]reflect.Value{})
+	return callResult[0].Interface(), nil
 }

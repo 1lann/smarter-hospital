@@ -50,3 +50,17 @@ func handleAction(c *gin.Context) {
 		Message:    resp,
 	})
 }
+
+func handleInfo(c *gin.Context) {
+	moduleID := c.Param("moduleid")
+	result, err := core.Info(moduleID)
+	if err == core.ErrNotFound {
+		c.String(http.StatusNotFound, "")
+		return
+	} else if err != nil {
+		c.String(http.StatusInternalServerError, "")
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

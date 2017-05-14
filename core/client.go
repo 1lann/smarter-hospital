@@ -36,6 +36,11 @@ func (c *Client) Emit(moduleID string, val interface{}) {
 		return
 	}
 
+	if !setupModules[moduleID].registration.hasEventHandler {
+		panic("core: attempt to emit event without an event handler " +
+			"for module: " + moduleID)
+	}
+
 	if !reflect.TypeOf(val).
 		AssignableTo(setupModules[moduleID].registration.eventType) {
 		log.Println("core: refusing to emit: event value not assignable to " +
@@ -145,18 +150,8 @@ func safeEventPoll(module *setupModule, moduleID string, c *Client) {
 func Connect(addr string) *Client {
 	c := &Client{}
 
-	for moduleID, module := range setupModules {
-		if module.registration.hasPollEvents {
-			go func(module *setupModule, moduleID string) {
-				for {
-					safeEventPoll(module, moduleID, c)
-					time.Sleep(time.Second * 5)
-				}
-			}(module, moduleID)
-		}
-	}
-
 	go func() {
+		hasConnected := false
 		for {
 			err := c.reconnect(addr)
 			if err != nil {
@@ -165,6 +160,20 @@ func Connect(addr string) *Client {
 				continue
 			}
 
+			if !hasConnected {
+				for moduleID, module := range setupModules {
+					if module.registration.hasPollEvents {
+						go func(module *setupModule, moduleID string) {
+							for {
+								safeEventPoll(module, moduleID, c)
+								time.Sleep(time.Second * 5)
+							}
+						}(module, moduleID)
+					}
+				}
+			}
+
+			hasConnected = true
 			log.Println("core: re-connected")
 
 			<-c.client.DisconnectNotify()
@@ -184,7 +193,7 @@ func (c *Client) healthCheckHandler(client *rpc2.Client, _ *bool,
 }
 
 func (c *Client) actionHandler(client *rpc2.Client, action *Action,
-	result *Result) error {
+	result *Result) (err error) {
 	module, found := setupModules[action.ModuleID]
 	if !found {
 		result.Message = "Module not found"
@@ -202,6 +211,7 @@ func (c *Client) actionHandler(client *rpc2.Client, action *Action,
 		if r := recover(); r != nil {
 			log.Println("core: module action handler panic: " +
 				fmt.Sprint(r) + "\n" + string(debug.Stack()))
+			err = errors.New(fmt.Sprint(r))
 		}
 	}()
 
@@ -216,8 +226,8 @@ func (c *Client) actionHandler(client *rpc2.Client, action *Action,
 		return nil
 	}
 
-	err := results[0].Interface().(error)
-	result.Message = err.Error()
+	returnErr := results[0].Interface().(error)
+	result.Message = returnErr.Error()
 	result.Successful = false
 	return nil
 }

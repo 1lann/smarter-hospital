@@ -6,9 +6,12 @@ import (
 	"os"
 	"runtime/pprof"
 
+	"github.com/1lann/smarter-hospital/arduino"
 	"github.com/1lann/smarter-hospital/core"
+
 	_ "github.com/1lann/smarter-hospital/modules/lights"
 	_ "github.com/1lann/smarter-hospital/modules/ping"
+	_ "github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -24,12 +27,13 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	core.SetupModule("ping", "ping1")
-	core.SetupModule("lights", "lights1")
-	// err := arduino.Connect("/dev/tty.usbmodem1411")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	core.SetupModule("lights", "light1")
+	core.SetupModule("ultrasonic", "ultrasonic1")
+
+	err := arduino.Connect("/dev/tty.usbmodem1411")
+	if err != nil {
+		panic(err)
+	}
 	log.Println("connecting...")
 	core.Connect("127.0.0.1:5000")
 	select {}

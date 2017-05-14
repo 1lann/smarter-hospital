@@ -293,6 +293,8 @@ func (s *Server) handleEvent(client *rpc2.Client, event *Event) {
 	module.module.MethodByName("HandleEvent").
 		Call([]reflect.Value{reflect.ValueOf(event.Value)})
 
+	eventHandler(event.ModuleID, event.Value)
+
 	logics := moduleToLogic[event.ModuleID]
 	for _, logic := range logics {
 		go registeredLogic[logic].trigger(s)

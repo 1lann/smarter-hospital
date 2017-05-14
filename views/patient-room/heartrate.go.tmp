@@ -1,0 +1,101 @@
+// +build js
+
+package patientroom
+
+import (
+	"github.com/1lann/smarter-hospital/modules/ultrasonic"
+	"github.com/1lann/smarter-hospital/views"
+	"github.com/1lann/smarter-hospital/ws"
+	"github.com/gopherjs/gopherjs/js"
+)
+
+const (
+	heartRateGood    = "green heartbeat"
+	heartRateBad     = "red heartbeat"
+	heartRateMissing = "grey help"
+)
+
+type HeartRate struct {
+	ModuleID  string
+	item      *Item
+	component *HeartRateComponent
+}
+
+type HeartRateComponent struct {
+	*js.Object
+	HeartRate bool `js:"contact"`
+	moduleID  string
+}
+
+var contactComponent *HeartRate
+
+func init() {
+	item := &Item{
+		Object: js.Global.Get("Object").New(),
+	}
+	item.Name = "Heart rate sensor"
+	item.Component = "heartrate"
+	item.Heading = "No heart rate detected"
+	item.Icon = heartRateMissing
+	item.Available = true
+	item.Active = false
+
+	component := &HeartRateComponent{
+		Object:   js.Global.Get("Object").New(),
+		moduleID: "heartrate1",
+	}
+	component.HeartRate = false
+
+	views.ComponentWithTemplate(func() interface{} {
+		return component
+	}, "patient-room/heartrate.tmpl").Register("heartrate")
+
+	contactComponent = &HeartRate{
+		ModuleID:  component.moduleID,
+		item:      item,
+		component: component,
+	}
+}
+
+func (c *HeartRate) onEvent(evt ultrasonic.Event) {
+	c.component.HeartRate = evt.HeartRate
+
+	if evt.HeartRate {
+		c.item.Heading = "Heart rate detected"
+		c.item.Icon = contactDetectedIcon
+	} else {
+		c.item.Heading = "Not detected in bed"
+		c.item.Icon = contactNotDetectedIcon
+	}
+
+}
+
+func (c *HeartRate) OnConnect(client *ws.Client) {
+	client.Subscribe(c.ModuleID, c.onEvent)
+
+	var info ultrasonic.Event
+	err := views.ModuleInfo(c.ModuleID, &info)
+	if err != nil {
+		println("contact info:", err.Error())
+	}
+
+	c.onEvent(info)
+}
+
+func (c *HeartRate) OnModuleConnect() {
+	c.item.Available = true
+	if c.item.Active {
+		pageModel.ViewComponent = c.item.Component
+	}
+}
+
+func (c *HeartRate) OnModuleDisconnect() {
+	c.item.Available = false
+	if c.item.Active {
+		pageModel.ViewComponent = "unavailable"
+	}
+}
+
+func (c *HeartRate) Item() *Item {
+	return c.item
+}

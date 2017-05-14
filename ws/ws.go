@@ -31,10 +31,15 @@ type subscription struct {
 	handler   reflect.Value
 }
 
+type websocketConnection struct {
+	conn  *websocket.Conn
+	mutex *sync.Mutex
+}
+
 // Server is the object for a WebSocket server.
 type Server struct {
 	upgrader          websocket.Upgrader
-	wsClients         map[string]*websocket.Conn
+	wsClients         map[string]websocketConnection
 	subscribedClients map[string][]string
 	wsClientsMutex    *sync.RWMutex
 	subscribedMutex   *sync.RWMutex
@@ -61,7 +66,7 @@ type SubscriptionMessage struct {
 func NewServer() *Server {
 	return &Server{
 		upgrader:          websocket.Upgrader{},
-		wsClients:         make(map[string]*websocket.Conn),
+		wsClients:         make(map[string]websocketConnection),
 		subscribedClients: make(map[string][]string),
 		wsClientsMutex:    new(sync.RWMutex),
 		subscribedMutex:   new(sync.RWMutex),
@@ -92,9 +97,12 @@ func (s *Server) Handle(r *http.Request, wr http.ResponseWriter) {
 	if _, exists := s.wsClients[r.RemoteAddr]; exists {
 		log.Println("ws: already existing connection:",
 			r.RemoteAddr)
-		s.wsClients[r.RemoteAddr].Close()
+		s.wsClients[r.RemoteAddr].conn.Close()
 	}
-	s.wsClients[r.RemoteAddr] = conn
+	s.wsClients[r.RemoteAddr] = websocketConnection{
+		conn:  conn,
+		mutex: new(sync.Mutex),
+	}
 	s.wsClientsMutex.Unlock()
 
 	go s.handleConnection(r.RemoteAddr, conn)
@@ -173,7 +181,7 @@ func (s *Server) handleConnection(id string, conn *websocket.Conn) {
 func (s *Server) Emit(event string, msg interface{}) {
 	type connection struct {
 		id   string
-		conn *websocket.Conn
+		conn websocketConnection
 	}
 
 	var connections []connection
@@ -191,10 +199,12 @@ func (s *Server) Emit(event string, msg interface{}) {
 	s.subscribedMutex.RUnlock()
 
 	for _, connPair := range connections {
-		err := connPair.conn.WriteJSON(encodeMessage{
+		connPair.conn.mutex.Lock()
+		err := connPair.conn.conn.WriteJSON(encodeMessage{
 			Event: event,
 			Value: msg,
 		})
+		connPair.conn.mutex.Unlock()
 		if err != nil {
 			log.Println("ws: write error:", err)
 			continue
@@ -298,7 +308,7 @@ func (c *Client) Connect(url string) {
 			go func(c *Client) {
 				defer func() {
 					if r := recover(); r != nil {
-						log.Println("ws: HandleConnect panic: " +
+						println("ws: HandleConnect panic: " +
 							fmt.Sprint(r) + "\n" + string(debug.Stack()))
 					}
 				}()
@@ -317,7 +327,7 @@ func (c *Client) Connect(url string) {
 				var msg decodeMessage
 				err = json.Unmarshal(buffer[:n], &msg)
 				if err != nil {
-					println("ws: could not decode json:", err)
+					println("ws: could not decode json:", err.Error())
 					continue
 				}
 
@@ -330,8 +340,8 @@ func (c *Client) Connect(url string) {
 				value := reflect.New(handler.valueType)
 				err = json.Unmarshal([]byte(msg.Value), value.Interface())
 				if err != nil {
-					println("ws: could not decode value json for event \""+
-						msg.Event+"\":", err)
+					println("ws: could not decode json value for event \""+
+						msg.Event+"\":", err.Error())
 					continue
 				}
 

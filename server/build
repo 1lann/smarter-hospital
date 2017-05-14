@@ -2,7 +2,7 @@
 cd $GOPATH/src/github.com/1lann/smarter-hospital/server
 go build -o server . || exit
 cd ../views
-go-bindata -nocompress -pkg views -o assets.go **/*.tmpl
+go-bindata -nocompress -pkg views -o assets.go `find . -type f -name "*.tmpl"`
 cd script
 gopherjs build --tags debug -o ../../server/vendor/js/views.min.js || exit
 cd ../../server

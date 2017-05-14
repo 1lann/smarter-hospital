@@ -1,0 +1,25 @@
+<div>
+<h1 class="ui header">
+	Lights
+</h1>
+
+<div class="ui vertical labeled icon fluid massive buttons">
+	<button class="ui button" :class="{'yellow': state >= onState}" @click="SetState(onState)">
+		<i class="idea icon"></i>
+		On
+	</button>
+	<button class="ui button" :class="{'yellow': (state >= dimmedState &amp;&amp; state < onState) }" @click="SetState(dimmedState)">
+		<i class="idea icon"></i>
+		Dimmmed
+	</button>
+	<button class="ui button" :class="{'yellow': state == 0}" @click="SetState(0)">
+		<i class="idea icon"></i>
+		Off
+	</button>
+</div>
+
+<!-- <h1 class="ui header">
+	History
+</h1>
+Coming soon...
+</div> -->

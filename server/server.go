@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/1lann/smarter-hospital/core"
 	"github.com/1lann/smarter-hospital/logic"
@@ -16,11 +18,15 @@ import (
 
 	"github.com/1lann/smarter-hospital/modules/lights"
 	_ "github.com/1lann/smarter-hospital/modules/ping"
+	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
 var server *core.Server
 
 var webPath = os.Getenv("GOPATH") + "/src/github.com/1lann/smarter-hospital/server"
+
+var connectedModules = make(map[string]bool)
+var connectedMutex = new(sync.Mutex)
 
 func main() {
 	err := store.Connect(store.ConnectOpts{
@@ -31,12 +37,37 @@ func main() {
 		panic(err)
 	}
 
-	core.SetupModule("ping", "ping1")
-	core.SetupModule("lights", "lights1", lights.Settings{
-		Pin: 11,
+	core.SetupModule("lights", "light1", lights.Settings{
+		Pin:               11,
+		AnimationDuration: time.Second,
+	})
+
+	core.SetupModule("ultrasonic", "ultrasonic1", ultrasonic.Settings{
+		TriggerPin:       5,
+		EchoPin:          6,
+		ContactThreshold: 2,
 	})
 
 	wsServer := ws.NewServer()
+
+	core.RegisterConnect(func(moduleID string) {
+		connectedMutex.Lock()
+		connectedModules[moduleID] = true
+		connectedMutex.Unlock()
+		wsServer.Emit("moduleConnect", moduleID)
+	})
+
+	core.RegisterDisconnect(func(moduleID string) {
+		connectedMutex.Lock()
+		delete(connectedModules, moduleID)
+		connectedMutex.Unlock()
+		wsServer.Emit("moduleDisconnect", moduleID)
+	})
+
+	core.RegisterEventHandler(func(moduleID string, event interface{}) {
+		wsServer.Emit(moduleID, event)
+	})
+
 	logic.Register(wsServer)
 
 	server, err = core.NewServer("0.0.0.0:5000")
@@ -56,7 +87,18 @@ func main() {
 		wsServer.Handle(c.Request, c.Writer)
 	})
 
-	r.POST("/action/:moduleid", handleAction)
+	// TODO: implement
+	r.GET("/module/info/:moduleid", handleInfo)
+	r.POST("/module/action/:moduleid", handleAction)
+	r.GET("/connected-modules", func(c *gin.Context) {
+		var results []string
+		connectedMutex.Lock()
+		for module := range connectedModules {
+			results = append(results, module)
+		}
+		connectedMutex.Unlock()
+		c.JSON(http.StatusOK, results)
+	})
 
 	r.Static("/static", webPath+"/vendor")
 

@@ -1,6 +1,11 @@
 package lights
 
-import "github.com/1lann/smarter-hospital/core"
+import (
+	"sync"
+	"time"
+
+	"github.com/1lann/smarter-hospital/core"
+)
 
 // Module ...
 type Module struct {
@@ -8,11 +13,13 @@ type Module struct {
 	Settings
 
 	CurrentState int
+	Mutex        *sync.Mutex
 }
 
 // Settings ...
 type Settings struct {
-	Pin int
+	Pin               int
+	AnimationDuration time.Duration
 }
 
 // Action ...
@@ -35,6 +42,8 @@ func (m *Module) HandleEvent(evt Event) {
 }
 
 // Info ...
-func (m *Module) Info() int {
-	return m.CurrentState
+func (m *Module) Info() Event {
+	return Event{
+		NewState: m.CurrentState,
+	}
 }

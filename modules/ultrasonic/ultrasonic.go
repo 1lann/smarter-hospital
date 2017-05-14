@@ -1,4 +1,4 @@
-package heartrate
+package ultrasonic
 
 import "github.com/1lann/smarter-hospital/core"
 
@@ -10,7 +10,9 @@ type Module struct {
 
 // Settings ...
 type Settings struct {
-	Pin int
+	TriggerPin       int
+	EchoPin          int
+	ContactThreshold float64
 }
 
 // Action ...
@@ -18,7 +20,7 @@ type Action struct{}
 
 // Event ...
 type Event struct {
-	BPM float64
+	Contact bool
 }
 
 func init() {
