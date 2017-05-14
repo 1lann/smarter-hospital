@@ -10,7 +10,8 @@ type Module struct {
 
 // Settings ...
 type Settings struct {
-	Pin int
+	PeakThreshold int
+	Pin           int
 }
 
 // Action ...

@@ -5,13 +5,18 @@ import (
 
 	"github.com/1lann/smarter-hospital/arduino"
 	"github.com/1lann/smarter-hospital/core"
-	_ "github.com/1lann/smarter-hospital/modules/dummy"
+
+	_ "github.com/1lann/smarter-hospital/modules/lights"
+	_ "github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
 func main() {
-	core.SetupModule("dummy", "dummy1")
+	core.SetupModule("lights", "light1")
+	core.SetupModule("ultrasonic", "ultrasonic1")
+
 	arduino.Connect("/dev/ttyATH0")
-	core.Connect("127.0.0.1:5000")
+
+	core.Connect("192.168.240.232:5000")
 	for {
 		time.Sleep(time.Minute)
 	}

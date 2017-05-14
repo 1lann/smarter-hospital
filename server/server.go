@@ -16,8 +16,8 @@ import (
 	"github.com/1lann/smarter-hospital/views"
 	_ "github.com/1lann/smarter-hospital/views/imports"
 
+	"github.com/1lann/smarter-hospital/modules/heartrate"
 	"github.com/1lann/smarter-hospital/modules/lights"
-	_ "github.com/1lann/smarter-hospital/modules/ping"
 	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
@@ -46,6 +46,11 @@ func main() {
 		TriggerPin:       5,
 		EchoPin:          6,
 		ContactThreshold: 2,
+	})
+
+	core.SetupModule("heartrate", "heartrate1", heartrate.Settings{
+		PeakThreshold: 530,
+		Pin:           0,
 	})
 
 	wsServer := ws.NewServer()

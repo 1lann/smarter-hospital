@@ -25,9 +25,8 @@ outside:
 		time.Sleep(time.Millisecond * 100)
 		arduino.Adaptor.DigitalWrite(triggerPin, 1)
 		time.Sleep(time.Millisecond)
-		arduino.Adaptor.DigitalWrite(triggerPin, 0)
-
 		riseStart := time.Now()
+		arduino.Adaptor.DigitalWrite(triggerPin, 0)
 
 		for {
 			result, err := arduino.Adaptor.DigitalRead(echoPin)
