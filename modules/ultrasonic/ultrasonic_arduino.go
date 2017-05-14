@@ -25,10 +25,10 @@ outside:
 		time.Sleep(time.Millisecond * 100)
 		arduino.Adaptor.DigitalWrite(triggerPin, 1)
 		time.Sleep(time.Millisecond)
-		riseStart := time.Now()
 		arduino.Adaptor.DigitalWrite(triggerPin, 0)
 
-		for {
+		var i int
+		for i = 0; i <= 20000; i++ {
 			result, err := arduino.Adaptor.DigitalRead(echoPin)
 			if err != nil {
 				panic(err)
@@ -37,16 +37,18 @@ outside:
 			if result == 1 {
 				break
 			}
+		}
 
-			if time.Since(riseStart) > time.Second {
-				log.Println("ultrasonic: rise timeout")
-				continue outside
-			}
+		if i == 20000 {
+			log.Println("ultrasonic: rise timeout")
+			continue outside
 		}
 
 		pulseStart := time.Now()
 
-		for {
+		i = 0
+
+		for i = 0; i <= 20000; i++ {
 			result, err := arduino.Adaptor.DigitalRead(echoPin)
 			if err != nil {
 				panic(err)
@@ -55,11 +57,11 @@ outside:
 			if result == 0 {
 				break
 			}
+		}
 
-			if time.Since(pulseStart) > time.Second {
-				log.Println("ultrasonic: fall timeout")
-				continue outside
-			}
+		if i == 20000 {
+			log.Println("ultrasonic: fall timeout")
+			continue outside
 		}
 
 		lastThree = append(lastThree[1:], time.Now().Sub(pulseStart).Seconds()*1000)
