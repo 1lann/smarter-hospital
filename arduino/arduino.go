@@ -1,7 +1,7 @@
 package arduino
 
 import (
-	"gobot.io/x/gobot/platforms/firmata"
+	"github.com/1lann/firmata"
 )
 
 // Adaptor represents the adaptor of the Firmata connection to the Arduino.

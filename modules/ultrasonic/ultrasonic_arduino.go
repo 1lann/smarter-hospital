@@ -20,51 +20,28 @@ func (m *Module) PollEvents(client *core.Client) {
 	lastContact := false
 	var lastEmit time.Time
 
-outside:
 	for {
 		time.Sleep(time.Millisecond * 100)
 		arduino.Adaptor.DigitalWrite(triggerPin, 1)
-		time.Sleep(time.Millisecond)
-		arduino.Adaptor.DigitalWrite(triggerPin, 0)
+		go func() {
+			time.Sleep(time.Millisecond * 10)
+			arduino.Adaptor.DigitalWrite(triggerPin, 0)
+		}()
 
-		var i int
-		for i = 0; i <= 20000; i++ {
-			result, err := arduino.Adaptor.DigitalRead(echoPin)
-			if err != nil {
-				panic(err)
-			}
-
-			if result == 1 {
-				break
-			}
+		log.Println("pulse in")
+		duration, err := arduino.Adaptor.PulseIn(echoPin, 1, time.Millisecond*100)
+		if err != nil {
+			log.Println("echo fail:", err)
+			continue
 		}
 
-		if i == 20000 {
-			log.Println("ultrasonic: rise timeout")
-			continue outside
+		log.Println("echo:", duration)
+
+		lastThree = append(lastThree[1:], duration.Seconds()*1000)
+		if lastThree[0] == 0 || lastThree[1] == 0 || lastThree[2] == 0 {
+			continue
 		}
 
-		pulseStart := time.Now()
-
-		i = 0
-
-		for i = 0; i <= 20000; i++ {
-			result, err := arduino.Adaptor.DigitalRead(echoPin)
-			if err != nil {
-				panic(err)
-			}
-
-			if result == 0 {
-				break
-			}
-		}
-
-		if i == 20000 {
-			log.Println("ultrasonic: fall timeout")
-			continue outside
-		}
-
-		lastThree = append(lastThree[1:], time.Now().Sub(pulseStart).Seconds()*1000)
 		average := (lastThree[0] + lastThree[1] + lastThree[2]) / 3.0
 
 		newContact := false
