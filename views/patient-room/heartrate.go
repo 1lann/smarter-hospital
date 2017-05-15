@@ -3,7 +3,9 @@
 package patientroom
 
 import (
-	"github.com/1lann/smarter-hospital/modules/ultrasonic"
+	"strconv"
+
+	"github.com/1lann/smarter-hospital/modules/heartrate"
 	"github.com/1lann/smarter-hospital/views"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
@@ -23,11 +25,12 @@ type HeartRate struct {
 
 type HeartRateComponent struct {
 	*js.Object
-	HeartRate bool `js:"contact"`
-	moduleID  string
+	BPM      int  `js:"bpm"`
+	Contact  bool `js:"contact"`
+	moduleID string
 }
 
-var contactComponent *HeartRate
+var heartrateComponent *HeartRate
 
 func init() {
 	item := &Item{
@@ -44,58 +47,51 @@ func init() {
 		Object:   js.Global.Get("Object").New(),
 		moduleID: "heartrate1",
 	}
-	component.HeartRate = false
+	component.Contact = false
+	component.BPM = 0
 
 	views.ComponentWithTemplate(func() interface{} {
 		return component
 	}, "patient-room/heartrate.tmpl").Register("heartrate")
 
-	contactComponent = &HeartRate{
+	heartrateComponent = &HeartRate{
 		ModuleID:  component.moduleID,
 		item:      item,
 		component: component,
 	}
 }
 
-func (c *HeartRate) onEvent(evt ultrasonic.Event) {
-	c.component.HeartRate = evt.HeartRate
+func (h *HeartRate) onEvent(evt heartrate.Event) {
+	h.component.BPM = int(evt.BPM)
+	h.component.Contact = evt.Contact
 
-	if evt.HeartRate {
-		c.item.Heading = "Heart rate detected"
-		c.item.Icon = contactDetectedIcon
+	if evt.Contact {
+		h.item.Heading = strconv.Itoa(h.component.BPM) + " BPM"
+		h.item.Icon = heartRateGood
 	} else {
-		c.item.Heading = "Not detected in bed"
-		c.item.Icon = contactNotDetectedIcon
-	}
-
-}
-
-func (c *HeartRate) OnConnect(client *ws.Client) {
-	client.Subscribe(c.ModuleID, c.onEvent)
-
-	var info ultrasonic.Event
-	err := views.ModuleInfo(c.ModuleID, &info)
-	if err != nil {
-		println("contact info:", err.Error())
-	}
-
-	c.onEvent(info)
-}
-
-func (c *HeartRate) OnModuleConnect() {
-	c.item.Available = true
-	if c.item.Active {
-		pageModel.ViewComponent = c.item.Component
+		h.item.Heading = "No heart rate detected"
+		h.item.Icon = heartRateMissing
 	}
 }
 
-func (c *HeartRate) OnModuleDisconnect() {
-	c.item.Available = false
-	if c.item.Active {
+func (h *HeartRate) OnConnect(client *ws.Client) {
+	client.Subscribe(h.ModuleID, h.onEvent)
+}
+
+func (h *HeartRate) OnModuleConnect() {
+	h.item.Available = true
+	if h.item.Active {
+		pageModel.ViewComponent = h.item.Component
+	}
+}
+
+func (h *HeartRate) OnModuleDisconnect() {
+	h.item.Available = false
+	if h.item.Active {
 		pageModel.ViewComponent = "unavailable"
 	}
 }
 
-func (c *HeartRate) Item() *Item {
-	return c.item
+func (h *HeartRate) Item() *Item {
+	return h.item
 }

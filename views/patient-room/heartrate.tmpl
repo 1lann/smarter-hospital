@@ -1,15 +1,15 @@
 <div>
-<h1 class="ui header">
-	In bed status
-</h1>
+<div class="ui large header">
+	Heart rate
+</div>
 
 <div v-if="contact" class="ui green massive label">
-	<i class="hotel icon"></i>
-	Detected in bed
+	<i class="heartbeat icon"></i>
+	{{bpm}} BPM
 </div>
 <div v-else class="ui massive label">
 	<i class="question icon"></i>
-	Not detected in bed
+	No heart rate detected
 </div>
 
 <!-- <h1 class="ui header">

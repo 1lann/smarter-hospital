@@ -99,6 +99,7 @@ func populateCategories(m *Model) {
 	healthCategory.Items = make([]*Item, 0)
 
 	healthCategory.Items = append(healthCategory.Items, contactComponent.Item())
+	healthCategory.Items = append(healthCategory.Items, heartrateComponent.Item())
 	m.Categories = append(m.Categories, healthCategory)
 }
 
@@ -139,6 +140,8 @@ func (p *Page) OnUnload(client *ws.Client) {
 	}
 }
 
+// TODO: Needs a lot of cleaning!
+
 func (p *Page) OnConnect(client *ws.Client) {
 	if p.connected {
 		js.Global.Get("location").Call("reload")
@@ -152,6 +155,8 @@ func (p *Page) OnConnect(client *ws.Client) {
 			lightsComponent.OnModuleConnect()
 		case contactComponent.ModuleID:
 			contactComponent.OnModuleConnect()
+		case heartrateComponent.ModuleID:
+			heartrateComponent.OnModuleConnect()
 		}
 	})
 
@@ -162,6 +167,8 @@ func (p *Page) OnConnect(client *ws.Client) {
 			lightsComponent.OnModuleDisconnect()
 		case contactComponent.ModuleID:
 			contactComponent.OnModuleDisconnect()
+		case heartrateComponent.ModuleID:
+			heartrateComponent.OnModuleDisconnect()
 		}
 	})
 
@@ -182,8 +189,15 @@ func (p *Page) OnConnect(client *ws.Client) {
 		contactComponent.OnModuleDisconnect()
 	}
 
+	if isInList(heartrateComponent.ModuleID, connectedModules) {
+		heartrateComponent.OnModuleConnect()
+	} else {
+		heartrateComponent.OnModuleDisconnect()
+	}
+
 	lightsComponent.OnConnect(client)
 	contactComponent.OnConnect(client)
+	heartrateComponent.OnConnect(client)
 }
 
 func isInList(item string, list []string) bool {

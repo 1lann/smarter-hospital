@@ -19,7 +19,8 @@ type Action struct{}
 
 // Event ...
 type Event struct {
-	BPM float64
+	Contact bool
+	BPM     float64
 }
 
 func init() {

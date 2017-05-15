@@ -15,8 +15,9 @@ import (
 func (m *Module) PollEvents(client *core.Client) {
 	// For some reason pin 4 = analog pin 0
 	pin := strconv.Itoa(4 + m.Settings.Pin)
+	noContactCount := 0
 
-	peaks := make([]time.Duration, 5)
+	peaks := make([]time.Duration, 10)
 	var lastPeak time.Time
 
 	isAbove := false
@@ -39,23 +40,30 @@ func (m *Module) PollEvents(client *core.Client) {
 		}
 
 		if time.Since(lastPeak) > (time.Second * 2) {
-			// log.Println("heartrate: no contact?")
+			noContactCount += 10
 		}
 
 		if newData {
 			newData = false
 			valid := true
 			var sum time.Duration
-			for _, peak := range peaks {
+			var numAvailable int
+			for i := len(peaks) - 1; i >= 0; i-- {
+				numAvailable = len(peaks) - i
+				peak := peaks[i]
 				if peak == 0 {
-					// log.Println("heartrate: not enough data")
-					valid = false
+					if numAvailable < 5 {
+						valid = false
+					}
 					break
 				}
 
 				if peak > (time.Second * 2) {
-					// log.Println("heartrate: no contact peak?")
-					valid = false
+					noContactCount++
+
+					if numAvailable < 5 {
+						valid = false
+					}
 					break
 				}
 
@@ -63,7 +71,17 @@ func (m *Module) PollEvents(client *core.Client) {
 			}
 
 			if valid {
-				log.Println("BPM:", 60.0/(sum.Seconds()/float64(len(peaks))))
+				noContactCount = 0
+				client.Emit("heartrate1", Event{
+					Contact: true,
+					BPM:     60.0 / (sum.Seconds() / float64(numAvailable)),
+				})
+			}
+
+			if noContactCount > 2 {
+				client.Emit("heartrate1", Event{
+					Contact: false,
+				})
 			}
 		}
 	}
