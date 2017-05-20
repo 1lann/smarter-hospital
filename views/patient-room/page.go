@@ -3,21 +3,26 @@
 package patientroom
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/1lann/smarter-hospital/views"
-	_ "github.com/1lann/smarter-hospital/views/notify"
+	"github.com/1lann/smarter-hospital/views/comps"
+	"github.com/1lann/smarter-hospital/views/contact"
+	"github.com/1lann/smarter-hospital/views/heartrate"
+	"github.com/1lann/smarter-hospital/views/lights"
 	_ "github.com/1lann/smarter-hospital/views/patient-navbar"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
+	vue "github.com/oskca/gopherjs-vue"
+
+	"github.com/1lann/smarter-hospital/views/charts"
 )
 
-var pageModel *Model
-
-type Component interface {
-	OnConnect(client *ws.Client)
-	OnDisconnect()
-	Item() *Item
+var modules = map[string]comps.Component{
+	"ultrasonic1": &contact.Contact{},
+	"heartrate1":  &heartrate.HeartRate{},
+	"lights1":     &lights.Lights{},
 }
 
 func (m *Model) SelectComponent(component string) {
@@ -47,72 +52,106 @@ func getGreeting() string {
 	return "evening"
 }
 
-func addItem(category *Category, name, subHeading, icon, component,
-	moduleID string) {
-	item := &Item{
-		Object: js.Global.Get("Object").New(),
-	}
-
-	item.Name = name
-	item.Heading = name
-	item.SubHeading = subHeading
-	item.Icon = icon
-	item.Component = component
-	item.Available = true
-	item.Active = false
-
-	category.Items = append(category.Items, item)
-}
-
 func populateCategories(m *Model) {
-	agendaCategory := &Category{
-		Object: js.Global.Get("Object").New(),
-	}
-
-	agendaCategory.Heading = ""
-	agendaCategory.SubHeading = ""
-	agendaCategory.Icon = ""
-	agendaCategory.Items = make([]*Item, 0)
-
-	addItem(agendaCategory, "Your agenda", "", "calendar", "agenda", "")
-	m.Categories = append(m.Categories, agendaCategory)
-
-	roomControls := &Category{
+	roomControls := &comps.Category{
 		Object: js.Global.Get("Object").New(),
 	}
 
 	roomControls.Heading = "Room controls"
 	roomControls.SubHeading = ""
 	roomControls.Icon = "settings"
-	roomControls.Items = make([]*Item, 0)
+	roomControls.Items = make([]*comps.Item, 0)
 
-	roomControls.Items = append(roomControls.Items, lightsComponent.Item())
+	roomControls.Items = append(roomControls.Items, modules["lights1"].Item())
 	m.Categories = append(m.Categories, roomControls)
 
-	healthCategory := &Category{
+	healthCategory := &comps.Category{
 		Object: js.Global.Get("Object").New(),
 	}
 
 	healthCategory.Heading = "Your health"
 	healthCategory.SubHeading = ""
 	healthCategory.Icon = "green plus"
-	healthCategory.Items = make([]*Item, 0)
+	healthCategory.Items = make([]*comps.Item, 0)
 
-	healthCategory.Items = append(healthCategory.Items, contactComponent.Item())
-	healthCategory.Items = append(healthCategory.Items, heartrateComponent.Item())
+	healthCategory.Items = append(healthCategory.Items, modules["ultrasonic1"].Item())
+	healthCategory.Items = append(healthCategory.Items, modules["heartrate1"].Item())
 	m.Categories = append(m.Categories, healthCategory)
 }
 
 func (p *Page) OnLoad() {
-	pageModel = &Model{
+	pageModel := &Model{
 		Object: js.Global.Get("Object").New(),
 	}
 
-	views.ComponentWithTemplate(func() interface{} {
-		return js.Global.Get("Object").New()
-	}, "patient-room/unavailable.tmpl", "connected").Register("unavailable")
+	type Unavailable struct {
+		*js.Object
+		ChartData *charts.ChartData `js:"chartData"`
+	}
 
-	pageModel.Categories = make([]*Category, 0)
+	u := &Unavailable{
+		Object: js.Global.Get("Object").New(),
+	}
+
+	uClosure := func() interface{} {
+		return u
+	}
+
+	opt := vue.NewOption()
+	opt.Data = uClosure
+	opt.Template = string(views.MustAsset("patient-room/unavailable.tmpl"))
+	opt.AddProp("connected")
+	opt.OnLifeCycleEvent(vue.EvtBeforeCreate, func(vm *vue.ViewModel) {
+		vm.Options.Set("methods", js.MakeWrapper(u))
+	})
+
+	shouldContinue := true
+
+	opt.OnLifeCycleEvent(vue.EvtMounted, func(vm *vue.ViewModel) {
+		println("Created")
+		cd := charts.NewChartData()
+		d := cd.NewDataset()
+		d.Data = []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+		d.Label = "Testing 123"
+		cd.Labels = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"}
+		opts := charts.NewOptions()
+		ticks := charts.NewTicks()
+		ticks.BeginAtZero = true
+		opts.NewYAxes().Ticks = ticks
+		anim := charts.NewAnimation()
+		anim.Easing = "linear"
+		anim.Duration = 1500
+		opts.Animation = anim
+		shouldContinue = true
+
+		chart := charts.NewChart("unavailable-chart", "line", cd, opts)
+
+		go func() {
+			r := rand.New(rand.NewSource(0))
+
+			for shouldContinue {
+				chart.Data.Datasets[0].Object.Get("data").Call("push", r.Int()%10)
+				chart.Data.Datasets[0].Object.Get("data").Call("shift")
+				chart.Update()
+				time.Sleep(time.Second)
+			}
+
+			println("Exited goroutine")
+
+		}()
+	})
+	opt.OnLifeCycleEvent(vue.EvtDestroyed, func(vm *vue.ViewModel) {
+		println("Destroyed")
+		shouldContinue = false
+
+	})
+	opt.NewComponent().Register(comps.UnavailableView)
+
+	for moduleID, module := range modules {
+		module.Init(moduleID)
+	}
+
+	pageModel.Categories = make([]*comps.Category, 0)
 	populateCategories(pageModel)
 
 	p.model = pageModel
@@ -122,7 +161,7 @@ func (p *Page) OnLoad() {
 	pageModel.PingText = ""
 	pageModel.LightOn = false
 	pageModel.Connected = false
-	pageModel.ViewComponent = ""
+	pageModel.ViewComponent = comps.UnavailableView
 
 	go func() {
 		for _ = range time.Tick(time.Minute) {
@@ -134,10 +173,7 @@ func (p *Page) OnLoad() {
 }
 
 func (p *Page) OnUnload(client *ws.Client) {
-	if client != nil {
-		client.Unsubscribe("pong")
-		client.Unsubscribe("lights1")
-	}
+	// TODO: Consider the need for this
 }
 
 // TODO: Needs a lot of cleaning!
@@ -149,27 +185,24 @@ func (p *Page) OnConnect(client *ws.Client) {
 	p.connected = true
 	p.model.Connected = true
 
+	// TODO: Automate unavailability
+
 	client.Subscribe("moduleConnect", func(moduleID string) {
-		switch moduleID {
-		case lightsComponent.ModuleID:
-			lightsComponent.OnModuleConnect()
-		case contactComponent.ModuleID:
-			contactComponent.OnModuleConnect()
-		case heartrateComponent.ModuleID:
-			heartrateComponent.OnModuleConnect()
+		module, found := modules[moduleID]
+		if !found {
+			return
 		}
+
+		module.OnModuleConnect()
 	})
 
 	client.Subscribe("moduleDisconnect", func(moduleID string) {
-		println("disconnect:", moduleID)
-		switch moduleID {
-		case lightsComponent.ModuleID:
-			lightsComponent.OnModuleDisconnect()
-		case contactComponent.ModuleID:
-			contactComponent.OnModuleDisconnect()
-		case heartrateComponent.ModuleID:
-			heartrateComponent.OnModuleDisconnect()
+		module, found := modules[moduleID]
+		if !found {
+			return
 		}
+
+		module.OnModuleDisconnect()
 	})
 
 	connectedModules, err := views.ConnectedModules()
@@ -177,27 +210,15 @@ func (p *Page) OnConnect(client *ws.Client) {
 		println("connected modules error:", err.Error())
 	}
 
-	if isInList(lightsComponent.ModuleID, connectedModules) {
-		lightsComponent.OnModuleConnect()
-	} else {
-		lightsComponent.OnModuleDisconnect()
-	}
+	for moduleID, module := range modules {
+		module.OnConnect(client)
 
-	if isInList(contactComponent.ModuleID, connectedModules) {
-		contactComponent.OnModuleConnect()
-	} else {
-		contactComponent.OnModuleDisconnect()
+		if isInList(moduleID, connectedModules) {
+			module.OnModuleConnect()
+		} else {
+			module.OnModuleDisconnect()
+		}
 	}
-
-	if isInList(heartrateComponent.ModuleID, connectedModules) {
-		heartrateComponent.OnModuleConnect()
-	} else {
-		heartrateComponent.OnModuleDisconnect()
-	}
-
-	lightsComponent.OnConnect(client)
-	contactComponent.OnConnect(client)
-	heartrateComponent.OnConnect(client)
 }
 
 func isInList(item string, list []string) bool {
@@ -211,4 +232,8 @@ func isInList(item string, list []string) bool {
 
 func (p *Page) OnDisconnect() {
 	p.model.Connected = false
+
+	for _, module := range modules {
+		module.OnDisconnect()
+	}
 }

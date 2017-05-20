@@ -1,10 +1,11 @@
 // +build js
 
-package patientroom
+package lights
 
 import (
 	"github.com/1lann/smarter-hospital/modules/lights"
 	"github.com/1lann/smarter-hospital/views"
+	"github.com/1lann/smarter-hospital/views/comps"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
 )
@@ -15,8 +16,8 @@ const (
 )
 
 type Lights struct {
-	ModuleID  string
-	item      *Item
+	moduleID  string
+	item      *comps.Item
 	component *LightsComponent
 }
 
@@ -30,8 +31,8 @@ type LightsComponent struct {
 
 var lightsComponent *Lights
 
-func init() {
-	item := &Item{
+func (c *Lights) Init(moduleID string) {
+	item := &comps.Item{
 		Object: js.Global.Get("Object").New(),
 	}
 	item.Name = "Lights"
@@ -43,7 +44,7 @@ func init() {
 
 	component := &LightsComponent{
 		Object:   js.Global.Get("Object").New(),
-		moduleID: "light1",
+		moduleID: moduleID,
 	}
 	component.State = 0
 	component.DimmedState = 20
@@ -51,13 +52,11 @@ func init() {
 
 	views.ComponentWithTemplate(func() interface{} {
 		return component
-	}, "patient-room/lights.tmpl").Register("lights")
+	}, "lights/lights.tmpl").Register("lights")
 
-	lightsComponent = &Lights{
-		ModuleID:  component.moduleID,
-		item:      item,
-		component: component,
-	}
+	c.moduleID = moduleID
+	c.item = item
+	c.component = component
 }
 
 func (c *LightsComponent) SetState(state int) {
@@ -69,47 +68,39 @@ func (c *LightsComponent) SetState(state int) {
 	}(state)
 }
 
-func (l *Lights) onEvent(evt lights.Event) {
-	if evt.NewState >= l.component.OnState {
-		l.item.Heading = "Lights on"
-		l.item.Icon = lightsOnIcon
-	} else if evt.NewState >= l.component.DimmedState {
-		l.item.Heading = "Lights dimmed"
-		l.item.Icon = lightsOnIcon
+func (c *Lights) onEvent(evt lights.Event) {
+	if evt.NewState >= c.component.OnState {
+		c.item.Heading = "Lights on"
+		c.item.Icon = lightsOnIcon
+	} else if evt.NewState >= c.component.DimmedState {
+		c.item.Heading = "Lights dimmed"
+		c.item.Icon = lightsOnIcon
 	} else {
-		l.item.Heading = "Lights off"
-		l.item.Icon = lightsOffIcon
+		c.item.Heading = "Lights off"
+		c.item.Icon = lightsOffIcon
 	}
 
-	l.component.State = evt.NewState
+	c.component.State = evt.NewState
 }
 
-func (l *Lights) OnConnect(client *ws.Client) {
-	client.Subscribe(l.ModuleID, l.onEvent)
+func (c *Lights) OnConnect(client *ws.Client) {
+	client.Subscribe(c.moduleID, c.onEvent)
 
 	var info lights.Event
-	err := views.ModuleInfo(l.ModuleID, &info)
+	err := views.ModuleInfo(c.moduleID, &info)
 	if err != nil {
 		println("lights info:", err.Error())
 	}
 
-	l.onEvent(info)
+	c.onEvent(info)
 }
 
-func (l *Lights) OnModuleConnect() {
-	l.item.Available = true
-	if l.item.Active {
-		pageModel.ViewComponent = l.item.Component
-	}
+func (c *Lights) Item() *comps.Item {
+	return c.item
 }
 
-func (l *Lights) OnModuleDisconnect() {
-	l.item.Available = false
-	if l.item.Active {
-		pageModel.ViewComponent = "unavailable"
-	}
-}
+func (c *Lights) OnDisconnect() {}
 
-func (l *Lights) Item() *Item {
-	return l.item
-}
+func (c *Lights) OnModuleConnect() {}
+
+func (c *Lights) OnModuleDisconnect() {}

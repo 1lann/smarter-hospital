@@ -3,6 +3,7 @@
 package heartrate
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -29,6 +30,8 @@ func (m *Module) PollEvents(client *core.Client) {
 			log.Println("heartrate read:", err)
 			continue
 		}
+
+		fmt.Println(val)
 
 		if !isAbove && (val > m.Settings.PeakThreshold) {
 			isAbove = true

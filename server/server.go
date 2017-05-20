@@ -49,7 +49,7 @@ func main() {
 	})
 
 	core.SetupModule("heartrate", "heartrate1", heartrate.Settings{
-		PeakThreshold: 530,
+		PeakThreshold: 440,
 		Pin:           0,
 	})
 

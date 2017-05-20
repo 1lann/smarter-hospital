@@ -1,10 +1,11 @@
 // +build js
 
-package patientroom
+package contact
 
 import (
 	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 	"github.com/1lann/smarter-hospital/views"
+	"github.com/1lann/smarter-hospital/views/comps"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
 )
@@ -15,8 +16,8 @@ const (
 )
 
 type Contact struct {
-	ModuleID  string
-	item      *Item
+	moduleID  string
+	item      *comps.Item
 	component *ContactComponent
 }
 
@@ -26,10 +27,8 @@ type ContactComponent struct {
 	moduleID string
 }
 
-var contactComponent *Contact
-
-func init() {
-	item := &Item{
+func (c *Contact) Init(moduleID string) {
+	item := &comps.Item{
 		Object: js.Global.Get("Object").New(),
 	}
 	item.Name = "Bed sensor"
@@ -41,19 +40,17 @@ func init() {
 
 	component := &ContactComponent{
 		Object:   js.Global.Get("Object").New(),
-		moduleID: "ultrasonic1",
+		moduleID: moduleID,
 	}
 	component.Contact = false
 
 	views.ComponentWithTemplate(func() interface{} {
 		return component
-	}, "patient-room/contact.tmpl").Register("contact")
+	}, "contact/contact.tmpl").Register("contact")
 
-	contactComponent = &Contact{
-		ModuleID:  component.moduleID,
-		item:      item,
-		component: component,
-	}
+	c.moduleID = moduleID
+	c.item = item
+	c.component = component
 }
 
 func (c *Contact) onEvent(evt ultrasonic.Event) {
@@ -70,10 +67,10 @@ func (c *Contact) onEvent(evt ultrasonic.Event) {
 }
 
 func (c *Contact) OnConnect(client *ws.Client) {
-	client.Subscribe(c.ModuleID, c.onEvent)
+	client.Subscribe(c.moduleID, c.onEvent)
 
 	var info ultrasonic.Event
-	err := views.ModuleInfo(c.ModuleID, &info)
+	err := views.ModuleInfo(c.moduleID, &info)
 	if err != nil {
 		println("contact info:", err.Error())
 	}
@@ -81,20 +78,12 @@ func (c *Contact) OnConnect(client *ws.Client) {
 	c.onEvent(info)
 }
 
-func (c *Contact) OnModuleConnect() {
-	c.item.Available = true
-	if c.item.Active {
-		pageModel.ViewComponent = c.item.Component
-	}
-}
-
-func (c *Contact) OnModuleDisconnect() {
-	c.item.Available = false
-	if c.item.Active {
-		pageModel.ViewComponent = "unavailable"
-	}
-}
-
-func (c *Contact) Item() *Item {
+func (c *Contact) Item() *comps.Item {
 	return c.item
 }
+
+func (c *Contact) OnDisconnect() {}
+
+func (c *Contact) OnModuleConnect() {}
+
+func (c *Contact) OnModuleDisconnect() {}
