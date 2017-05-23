@@ -1,0 +1,16 @@
+<div class="ui large red header">
+	<i class="warning sign icon"></i>
+	<div v-if="connected" class="content">
+		Feature unavailable due to a technical isssue
+		<div class="sub header">
+			Staff have been notified, sorry for the inconvenience
+		</div>
+	</div>
+	<div v-else class="content">
+		Could not connect to server
+		<div class="sub header">
+			Check your network connection
+		</div>
+	</div>
+	<canvas id="unavailable-chart"></canvas>
+</div>

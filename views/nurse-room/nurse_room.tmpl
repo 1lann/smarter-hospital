@@ -1,9 +1,11 @@
 <div>
-<patient-navbar :connected="connected"></patient-navbar>
+<nurse-navbar :connected="connected"></nurse-navbar>
 <div class="ui container with-patient-navbar">
 	<h1 class="ui header">
-		Good {{greeting}}, {{name}}.
+		Ash Ketchum - Room 025
 	</h1>
+
+
 
 	<div class="ui grid">
 		<div v-if="!mobile || showMenu" class="six wide computer six wide tablet sixteen wide mobile column">

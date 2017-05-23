@@ -28,7 +28,7 @@ func (m *Module) PollEvents(client *core.Client) {
 			arduino.Adaptor.DigitalWrite(triggerPin, 0)
 		}()
 
-		duration, err := arduino.Adaptor.PulseIn(echoPin, 1, time.Millisecond*100)
+		duration, err := arduino.Adaptor.PulseIn(echoPin, 1, time.Millisecond*1000)
 		if err != nil {
 			log.Println("echo fail:", err)
 			continue
@@ -47,6 +47,9 @@ func (m *Module) PollEvents(client *core.Client) {
 		average := (lastThree[0] + lastThree[1] + lastThree[2]) / 3.0
 
 		newContact := false
+
+		log.Println(average)
+
 		if average < m.Settings.ContactThreshold {
 			newContact = true
 		}

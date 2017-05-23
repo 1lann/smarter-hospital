@@ -12,6 +12,7 @@ type Module struct {
 	ID string
 	Settings
 
+	LastEvent    Event
 	CurrentState int
 	Mutex        *sync.Mutex
 }
@@ -30,6 +31,7 @@ type Action struct {
 // Event ...
 type Event struct {
 	NewState int // 0 = off, 255 = full
+	Time     time.Time
 }
 
 func init() {
@@ -38,12 +40,10 @@ func init() {
 
 // HandleEvent ...
 func (m *Module) HandleEvent(evt Event) {
-	m.CurrentState = evt.NewState
+	m.LastEvent = evt
 }
 
 // Info ...
 func (m *Module) Info() Event {
-	return Event{
-		NewState: m.CurrentState,
-	}
+	return m.LastEvent
 }

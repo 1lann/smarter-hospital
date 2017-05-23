@@ -1,4 +1,4 @@
-package patientroom
+package nurseroom
 
 import (
 	"github.com/1lann/smarter-hospital/views"
@@ -7,19 +7,18 @@ import (
 )
 
 func init() {
-	views.RegisterPage("/patient/room", new(Page))
+	views.RegisterPage("/nurse/room", new(Page))
 }
 
 // Model represents the Vue.js model.
 type Model struct {
 	*js.Object
 	Name          string            `js:"name"`
-	Greeting      string            `js:"greeting"`
 	Connected     bool              `js:"connected"`
 	Categories    []*comps.Category `js:"categories"`
 	ViewComponent string            `js:"viewComponent"`
-	ShowMenu      bool              `js:"showMenu"`
 	Mobile        bool              `js:"mobile"`
+	ShowMenu      bool              `js:"showMenu"`
 }
 
 // Page represents the room page.
@@ -31,5 +30,5 @@ type Page struct {
 
 // Title ...
 func (p *Page) Title() string {
-	return "Patient Room"
+	return "Nurse Controls"
 }

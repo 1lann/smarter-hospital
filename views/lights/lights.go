@@ -35,6 +35,7 @@ func (c *Lights) Init(moduleID string) {
 	item := &comps.Item{
 		Object: js.Global.Get("Object").New(),
 	}
+	item.ID = moduleID
 	item.Name = "Lights"
 	item.Component = "lights"
 	item.Heading = "Lights off"

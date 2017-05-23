@@ -1,0 +1,19 @@
+<div>
+	<div v-if="mobile" class="ui left labeled button">
+		<div class="ui basic tiny label" :class="events.length ? 'red' : 'green'">
+			{{events.length}}
+		</div>
+		<div class="ui button" :class="events.length ? 'red' : 'green'">
+			Alerts
+		</div>
+	</div>
+	<div v-else class="ui left labeled button" style="font-size:18px;">
+		<div class="ui basic label" :class="events.length ? 'red' : 'green'">
+			{{events.length}}
+		</div>
+		<div class="ui button" :class="events.length ? 'red' : 'green'" style="font-size:18px;">
+			<i class="alarm icon"></i>
+			Alerts
+		</div>
+	</div>
+</div>

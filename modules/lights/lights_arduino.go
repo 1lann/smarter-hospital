@@ -49,6 +49,7 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 
 	client.Emit(m.ID, Event{
 		NewState: act.State,
+		Time:     time.Now(),
 	})
 
 	return nil

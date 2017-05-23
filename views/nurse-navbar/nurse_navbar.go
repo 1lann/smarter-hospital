@@ -15,22 +15,15 @@ var jQuery = jquery.NewJQuery
 // Model represents the mode for the navigation bar.
 type Model struct {
 	*js.Object
-	Name       string `js:"name"`
-	Date       string `js:"date"`
-	Time       string `js:"time"`
-	RoomNumber string `js:"roomNumber"`
-	Connected  bool   `js:"connected"`
-}
-
-// CallNurse sends an alert to the nurse.
-func (m *Model) CallNurse() {
-
+	Name      string `js:"name"`
+	Date      string `js:"date"`
+	Time      string `js:"time"`
+	Connected bool   `js:"connected"`
 }
 
 func init() {
 	views.ComponentWithTemplate(func() interface{} {
 		m := &Model{Object: js.Global.Get("Object").New()}
-		m.RoomNumber = "025"
 		m.Name = views.GetUser().FirstName + " " + views.GetUser().LastName
 
 		m.Date = time.Now().Format("Monday, _2 Jan 2006")
@@ -44,6 +37,6 @@ func init() {
 		}()
 
 		return m
-	}, "patient-navbar/patient_navbar.tmpl", "connected").
-		Register("patient-navbar")
+	}, "nurse-navbar/nurse_navbar.tmpl", "connected").
+		Register("nurse-navbar")
 }

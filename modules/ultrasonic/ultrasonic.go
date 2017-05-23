@@ -6,6 +6,8 @@ import "github.com/1lann/smarter-hospital/core"
 type Module struct {
 	ID string
 	Settings
+
+	LastEvent Event
 }
 
 // Settings ...
@@ -28,4 +30,11 @@ func init() {
 }
 
 // HandleEvent ...
-func (m *Module) HandleEvent(evt Event) {}
+func (m *Module) HandleEvent(evt Event) {
+	m.LastEvent = evt
+}
+
+// Info ...
+func (m *Module) Info() Event {
+	return m.LastEvent
+}

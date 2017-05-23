@@ -31,6 +31,7 @@ func (c *Contact) Init(moduleID string) {
 	item := &comps.Item{
 		Object: js.Global.Get("Object").New(),
 	}
+	item.ID = moduleID
 	item.Name = "Bed sensor"
 	item.Component = "contact"
 	item.Heading = "Not detected in bed"

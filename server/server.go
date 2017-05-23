@@ -9,8 +9,10 @@ import (
 
 	"github.com/1lann/smarter-hospital/core"
 	"github.com/1lann/smarter-hospital/logic"
+	"github.com/1lann/smarter-hospital/notify"
 	"github.com/1lann/smarter-hospital/store"
 	"github.com/1lann/smarter-hospital/ws"
+	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
 
 	"github.com/1lann/smarter-hospital/views"
@@ -28,15 +30,7 @@ var webPath = os.Getenv("GOPATH") + "/src/github.com/1lann/smarter-hospital/serv
 var connectedModules = make(map[string]bool)
 var connectedMutex = new(sync.Mutex)
 
-func main() {
-	err := store.Connect(store.ConnectOpts{
-		Address:  "127.0.0.1:27017",
-		Database: "smarter-hospital",
-	})
-	if err != nil {
-		panic(err)
-	}
-
+func moduleSetup() {
 	core.SetupModule("lights", "light1", lights.Settings{
 		Pin:               11,
 		AnimationDuration: time.Second,
@@ -52,6 +46,19 @@ func main() {
 		PeakThreshold: 440,
 		Pin:           0,
 	})
+
+}
+
+func main() {
+	err := store.Connect(store.ConnectOpts{
+		Address:  "127.0.0.1:27017",
+		Database: "smarter-hospital",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	moduleSetup()
 
 	wsServer := ws.NewServer()
 
@@ -73,7 +80,8 @@ func main() {
 		wsServer.Emit(moduleID, event)
 	})
 
-	logic.Register(wsServer)
+	notifyServer := notify.NewServer(wsServer)
+	logic.Register(wsServer, notifyServer)
 
 	server, err = core.NewServer("0.0.0.0:5000")
 	if err != nil {
@@ -81,6 +89,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.LoadHTMLFiles(webPath + "/view.tmpl")
 
 	allPages := views.AllPages()
@@ -92,10 +101,9 @@ func main() {
 		wsServer.Handle(c.Request, c.Writer)
 	})
 
-	// TODO: implement
 	r.GET("/module/info/:moduleid", handleInfo)
 	r.POST("/module/action/:moduleid", handleAction)
-	r.GET("/connected-modules", func(c *gin.Context) {
+	r.GET("/module/connected", func(c *gin.Context) {
 		var results []string
 		connectedMutex.Lock()
 		for module := range connectedModules {
@@ -103,6 +111,29 @@ func main() {
 		}
 		connectedMutex.Unlock()
 		c.JSON(http.StatusOK, results)
+	})
+
+	r.GET("/notify/all", func(c *gin.Context) {
+		n, err := notifyServer.Notifications()
+		if err != nil {
+			log.Println("server: notify: all:", err)
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, n)
+		return
+	})
+
+	r.GET("/notify/dismiss/:id", func(c *gin.Context) {
+		err := notifyServer.Dismiss(c.Param("id"))
+		if err != nil {
+			log.Println("server: notify: dismiss:", err)
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.String(http.StatusOK, "")
 	})
 
 	r.Static("/static", webPath+"/vendor")
@@ -113,12 +144,23 @@ func main() {
 
 func pageHandler(title string) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		c.HTML(http.StatusOK, "view.tmpl", gin.H{
-			"Title": title,
-			"User": gin.H{
-				"firstName": "John",
-				"lastName":  "Smith",
-			},
-		})
+		if title == "Nurse Controls" {
+			c.HTML(http.StatusOK, "view.tmpl", gin.H{
+				"Title": title,
+				"User": gin.H{
+					"firstName": "Nurse",
+					"lastName":  "Joy",
+				},
+			})
+		} else {
+			c.HTML(http.StatusOK, "view.tmpl", gin.H{
+				"Title": title,
+				"User": gin.H{
+					"firstName": "Ash",
+					"lastName":  "Ketchum",
+				},
+			})
+		}
+
 	}
 }

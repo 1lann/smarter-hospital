@@ -1,5 +1,3 @@
-// +build js
-
 package views
 
 import (
@@ -9,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/1lann/smarter-hospital/core"
-	"github.com/gopherjs/gopherjs/js"
 )
 
 // Address stores the address of the website including the scheme, based on the
@@ -99,7 +96,7 @@ func ModuleInfo(moduleID string, response interface{}) error {
 // ConnectedModules requests the server over HTTP for the currently connected
 // modules.
 func ConnectedModules() ([]string, error) {
-	resp, err := http.Get(Address + "/connected-modules")
+	resp, err := http.Get(Address + "/module/connected")
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +112,4 @@ func ConnectedModules() ([]string, error) {
 	}
 
 	return response, nil
-}
-
-func init() {
-	if js.Global.Get("location").Get("protocol").String() == "https:" {
-		Address = "https://" + js.Global.Get("location").Get("host").String()
-	} else {
-		Address = "http://" + js.Global.Get("location").Get("host").String()
-	}
 }

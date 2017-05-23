@@ -33,6 +33,7 @@ type Category struct {
 // Item represents an item displayed in the menu as part of a category.
 type Item struct {
 	*js.Object
+	ID         string `js:"id"`
 	Name       string `js:"name"`
 	Heading    string `js:"heading"`
 	SubHeading string `js:"subHeading"`

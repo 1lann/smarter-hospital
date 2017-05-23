@@ -1,0 +1,42 @@
+<div>
+	<div class="ui top fixed menu patient-navbar">
+		<div class="ui header item on-mobile">
+			<span>
+				<i class="icon" :class="{'doctor green': connected, 'plug red': !connected}" style="margin-right:0px;"></i>
+			</span>
+			{{name}}
+		</div>
+
+		<div class="right item on-mobile">
+			<alerts :mobile="true" style="margin-top:-5px;margin-bottom:-5px;"></alerts>
+		</div>
+
+		<div class="ui container on-desktop" style="height:70px;">
+			<div class="left menu">
+				<div class="item">
+					<div class="ui header" :data-tooltip="connected ? 'Connected to system, all information displayed is in real time.' : 'Disconnected from system, actions will not work, information will not be updated.'" data-position="bottom left">
+						<i class="icon" :class="{'circle green': connected, 'plug red': !connected}"></i>
+						<div class="content">
+							{{time}}
+							<div class="sub header">{{date}}</div>
+						</div>
+					</div>
+				</div>
+				<div class="ui item">
+					<div class="ui header" >
+						<i class="doctor green icon"></i>
+						<div class="content">
+							{{name}}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="right menu">
+				<div class="item">
+					<alerts :mobile="false"></alerts>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

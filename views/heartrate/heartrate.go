@@ -35,9 +35,9 @@ func (c *HeartRate) Init(moduleID string) {
 	item := &comps.Item{
 		Object: js.Global.Get("Object").New(),
 	}
+	item.ID = moduleID
 	item.Name = "Heart rate sensor"
-	// TODO: Just testing, change back later
-	item.Component = "unavailable"
+	item.Component = "heartrate"
 	item.Heading = "No heart rate detected"
 	item.Icon = heartRateMissing
 	item.Available = true
