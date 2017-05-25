@@ -1,4 +1,4 @@
-<div>
+<div class="alerts-component">
 	<div v-if="mobile" class="ui left labeled button">
 		<div class="ui basic tiny label" :class="events.length ? 'red' : 'green'">
 			{{events.length}}
@@ -14,6 +14,17 @@
 		<div class="ui button" :class="events.length ? 'red' : 'green'" style="font-size:18px;">
 			<i class="alarm icon"></i>
 			Alerts
+		</div>
+	</div>
+	<div class="ui green inverted segment alerts-list">
+		<div class="ui inverted header">
+			<i class="checkmark icon"></i>
+			<div class="content">
+				There are no alerts, woo!
+				<div class="sub header">
+					Looking for <a href="/nurse/room#events">past events</a>?
+				</div>
+			</div>
 		</div>
 	</div>
 </div>

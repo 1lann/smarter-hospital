@@ -5,135 +5,55 @@
 		Good {{greeting}}, {{name}}.
 	</h1>
 
-	<div class="ui grid">
-		<div v-if="!mobile || showMenu" class="six wide computer six wide tablet sixteen wide mobile column">
-			<template v-for="category in categories">
-				<div v-if="category.heading" class="ui large header">
-					<i :class="category.icon" class="icon"></i>
-					<div class="content">
-						{{category.heading}}
-						<div v-if="category.subHeading" class="sub header">
-							{{category.subHeading}}
+	<div class="ui grid" style="position: relative;">
+		<transition-group name="mobile-view" tag="span" :class="{row: !mobile}">
+			<div v-if="!mobile || showMenu" class="six wide computer six wide tablet sixteen wide mobile column mobile-view-item menu-view" :key="0">
+				<template v-for="category in categories">
+					<div v-if="category.heading" class="ui large header">
+						<i :class="category.icon" class="icon"></i>
+						<div class="content">
+							{{category.heading}}
+							<div v-if="category.subHeading" class="sub header">
+								{{category.subHeading}}
+							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="ui vertical pointing fluid menu">
-					<template v-for="item in category.items">
-						<a v-if="item.available &amp;&amp; connected" :class="{active: item.active}" class="item" @click="SelectComponent(item.component)">
-							<div class="ui header">
-								<i :class="item.icon" class="icon"></i>
-								<div class="content">
-									{{item.heading}}
-									<div v-if="item.subHeading" class="sub header">
-										{{item.subHeading}}
+					<div class="ui vertical pointing fluid menu">
+						<template v-for="item in category.items">
+							<a v-if="item.available &amp;&amp; connected" :class="{active: item.active}" class="item" @click="SelectComponent(item.component)">
+								<div class="ui header">
+									<i :class="item.icon" class="icon"></i>
+									<div class="content">
+										{{item.heading}}
+										<div v-if="item.subHeading" class="sub header">
+											{{item.subHeading}}
+										</div>
+									</div>
+								</div>
+							</a>
+							<div v-else class="item" :class="{active: item.active}">
+								<div class="ui red header">
+									<i class="warning sign icon"></i>
+									<div class="content">
+										{{item.name}} unavailable
 									</div>
 								</div>
 							</div>
-						</a>
-						<div v-else class="item" :class="{active: item.active}">
-							<div class="ui red header">
-								<i class="warning sign icon"></i>
-								<div class="content">
-									{{item.name}} unavailable
-								</div>
-							</div>
-						</div>
-					</template>
-				</div>
-			</template>
-
-
-			<!-- <div class="ui vertical pointing fluid menu">
-				<a class="item">
-					<div class="ui header">
-						<i class="calendar icon"></i>
-						<div class="content">
-							Your agenda
-						</div>
+						</template>
 					</div>
-				</a>
+				</template>
 			</div>
-
-
-			<div class="ui large header">
-				<i class="settings icon"></i>
-				<div class="content">
-					Room controls
-				</div>
+			<div v-if="!mobile || !showMenu" class="ten wide computer ten wide tablet sixteen wide mobile column mobile-view-item component-view" :key="1">
+				<button v-if="mobile" class="ui blue labeled icon fluid basic large button" @click="DisplayMenu()" style="margin-bottom: 10px;">
+					<i class="content icon"></i>
+					Menu
+				</button>
+				<component v-if="connected" v-bind:is="viewComponent" :connected="connected" :nurse="true">
+				</component>
+				<unavailable v-else :connected="connected"></unavailable>
 			</div>
-
-			<div class="ui vertical pointing fluid menu">
-				<a class="active item">
-					<div class="ui header">
-						<i class="yellow idea icon"></i>
-						<div class="content">
-							Lights off
-						</div>
-					</div>
-				</a>
-				<a class="item">
-					<div class="ui red header">
-						<i class="red warning sign icon"></i>
-						<div class="content">
-							Lighting unavailable
-						</div>
-					</div>
-				</a>
-				<a class="item">
-					<div class="ui header">
-						<i class="blue fa fa-snowflake-o icon"></i>
-						<div class="content">
-							Climate control
-						</div>
-					</div>
-				</a>
-			</div>
-
-
-			<h2 class="ui header">
-				<i class="green plus icon"></i>
-				<div class="content">
-					Your health is OK
-				</div>
-			</h2>
-
-			<div class="ui vertical pointing fluid menu">
-				<a class="item">
-					<div class="ui header">
-						<i class="green heartbeat icon"></i>
-						<div class="content">
-							100 BPM
-						</div>
-					</div>
-				</a>
-				<a class="item">
-					<div class="ui header">
-						<i class="green hotel icon"></i>
-						<div class="content">
-							In bed
-						</div>
-					</div>
-				</a>
-				<a class="item">
-					<div class="ui header">
-						<i class="green theme icon"></i>
-						<div class="content">
-							SpO<sub>2</sub>: 90%
-						</div>
-					</div>
-				</a>
-			</div> -->
-		</div>
-		<div v-if="!mobile || !showMenu" class="ten wide computer ten wide tablet sixteen wide mobile column">
-			<button v-if="mobile" class="ui blue labeled icon fluid basic large button" @click="DisplayMenu()">
-				<i class="content icon"></i>
-				Menu
-			</button>
-			<component v-if="connected" v-bind:is="viewComponent" :connected="connected" :nurse="true">
-			</component>
-			<unavailable v-else :connected="connected"></unavailable>
-		</div>
+		</transition-group>
 	</div>
 </div>
 

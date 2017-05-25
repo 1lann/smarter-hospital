@@ -34,6 +34,7 @@ func (m *Model) SelectComponent(component string) {
 		}
 	}
 
+	m.ShowMenu = false
 	m.ViewComponent = component
 }
 
@@ -169,31 +170,32 @@ func (p *Page) OnLoad() {
 	pageModel.Connected = false
 	pageModel.ViewComponent = comps.UnavailableView
 
-	hash := strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#")
+	pageModel.Mobile = js.Global.Get("window").Get("innerWidth").Int() <= 700
 
-	if hash != "" {
-	categoryLoop:
-		for _, category := range pageModel.Categories {
-			for _, item := range category.Items {
-				if item.ID == hash {
-					item.Active = true
-					pageModel.ViewComponent = item.Component
-					break categoryLoop
-				}
+	p.showHash(strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#"))
+
+	js.Global.Get("window").Set("onhashchange", js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
+		p.showHash(strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#"))
+		return nil
+	}))
+
+	views.ModelWithTemplate(pageModel, "patient-room/patient_room.tmpl")
+}
+
+func (p *Page) showHash(hash string) {
+	p.model.ShowMenu = true
+
+categoryLoop:
+	for _, category := range p.model.Categories {
+		for _, item := range category.Items {
+			if item.ID == hash {
+				item.Active = true
+				p.model.ShowMenu = false
+				p.model.ViewComponent = item.Component
+				break categoryLoop
 			}
 		}
 	}
-
-	go func() {
-		for _ = range time.Tick(time.Minute) {
-			pageModel.Greeting = getGreeting()
-		}
-	}()
-
-	pageModel.Mobile = js.Global.Get("window").Get("innerWidth").Int() <= 700
-	pageModel.ShowMenu = true
-
-	views.ModelWithTemplate(pageModel, "patient-room/patient_room.tmpl")
 }
 
 func (p *Page) OnUnload(client *ws.Client) {

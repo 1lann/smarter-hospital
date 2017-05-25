@@ -1,10 +1,13 @@
-package lights
+package climate
 
-import (
-	"sync"
-	"time"
+import "github.com/1lann/smarter-hospital/core"
 
-	"github.com/1lann/smarter-hospital/core"
+type State int
+
+const (
+	StateOff = iota
+	StateCooling
+	StateHeating
 )
 
 // Module ...
@@ -12,26 +15,28 @@ type Module struct {
 	ID string
 	Settings
 
-	LastEvent    Event
-	CurrentState int
-	Mutex        *sync.Mutex
+	LastEvent Event
 }
 
 // Settings ...
 type Settings struct {
-	Pin               int
-	AnimationDuration time.Duration
+	CoolingPin int
+	HeatingPin int
+
+	MaxCooling byte
+	MaxHeating byte
 }
 
 // Action ...
 type Action struct {
-	State int // 0 = off, 255 = full
+	State     State
+	Intensity float64
 }
 
 // Event ...
 type Event struct {
-	NewState int // 0 = off, 255 = full
-	// Time     time.Time
+	State     State
+	Intensity float64
 }
 
 func init() {

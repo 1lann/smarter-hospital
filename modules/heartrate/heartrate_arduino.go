@@ -26,7 +26,7 @@ func (m *Module) PollEvents(client *core.Client) {
 	for range time.Tick(time.Millisecond * 10) {
 		val, err := arduino.Adaptor.AnalogRead(pin)
 		if err != nil {
-			log.Println("heartrate read:", err)
+			log.Println("heartrate: read:", err)
 			continue
 		}
 

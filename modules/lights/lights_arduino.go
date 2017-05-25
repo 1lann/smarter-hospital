@@ -47,10 +47,19 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 		m.CurrentState = act.State
 	}(m, act)
 
-	client.Emit(m.ID, Event{
+	m.LastEvent = Event{
 		NewState: act.State,
-		Time:     time.Now(),
-	})
+	}
+
+	client.Emit(m.ID, m.LastEvent)
 
 	return nil
+}
+
+// PollEvents ...
+func (m *Module) PollEvents(client *core.Client) {
+	for {
+		time.Sleep(time.Second * 5)
+		client.Emit(m.ID, m.LastEvent)
+	}
 }

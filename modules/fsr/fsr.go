@@ -1,37 +1,29 @@
-package lights
+package fsr
 
-import (
-	"sync"
-	"time"
-
-	"github.com/1lann/smarter-hospital/core"
-)
+import "github.com/1lann/smarter-hospital/core"
 
 // Module ...
 type Module struct {
 	ID string
 	Settings
 
-	LastEvent    Event
-	CurrentState int
-	Mutex        *sync.Mutex
+	LastEvent Event
 }
 
 // Settings ...
 type Settings struct {
-	Pin               int
-	AnimationDuration time.Duration
+	Pin           int
+	SupplyVoltage float64
+	FixedResistor float64
+	Threshold     float64
 }
 
 // Action ...
-type Action struct {
-	State int // 0 = off, 255 = full
-}
+type Action struct{}
 
 // Event ...
 type Event struct {
-	NewState int // 0 = off, 255 = full
-	// Time     time.Time
+	Pressed bool
 }
 
 func init() {

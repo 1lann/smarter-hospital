@@ -20,11 +20,45 @@ type Model struct {
 	Time       string `js:"time"`
 	RoomNumber string `js:"roomNumber"`
 	Connected  bool   `js:"connected"`
+	Nurse      *Nurse `js:"nurse"`
+}
+
+type Nurse struct {
+	*js.Object
+	Status     string `js:"status"`
+	Icon       string `js:"icon"`
+	AllowCalls bool   `js:"allowCalls"`
+	Color      string `js:"color"`
 }
 
 // CallNurse sends an alert to the nurse.
 func (m *Model) CallNurse() {
+	denied := make(chan bool)
 
+	jquery.NewJQuery(".ui.modal.nurse-modal .progress .bar").SetCss("width", "0%")
+	jquery.NewJQuery(".ui.modal.nurse-modal").Call("modal", js.M{
+		"inverted": true,
+		"closable": false,
+		"onVisible": js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
+			jquery.NewJQuery(".ui.modal.nurse-modal .progress .bar").SetCss("width", "100%")
+
+			go func() {
+				select {
+				case <-time.After(time.Second * 5):
+					// TODO: Make request
+					jquery.NewJQuery(".ui.modal.nurse-modal").Call("modal", "hide")
+				case <-denied:
+					println("cancelled")
+				}
+			}()
+
+			return nil
+		}),
+		"onDeny": js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
+			denied <- true
+			return nil
+		}),
+	}).Call("modal", "show")
 }
 
 func init() {
@@ -35,6 +69,13 @@ func init() {
 
 		m.Date = time.Now().Format("Monday, _2 Jan 2006")
 		m.Time = time.Now().Format("3:04:05 PM")
+
+		m.Nurse = &Nurse{Object: js.Global.Get("Object").New()}
+
+		m.Nurse.Status = "Call nurse"
+		m.Nurse.Icon = "doctor"
+		m.Nurse.AllowCalls = true
+		m.Nurse.Color = "red"
 
 		go func() {
 			for _ = range time.Tick(time.Second) {

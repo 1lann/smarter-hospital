@@ -20,6 +20,7 @@ import (
 
 	"github.com/1lann/smarter-hospital/modules/heartrate"
 	"github.com/1lann/smarter-hospital/modules/lights"
+	"github.com/1lann/smarter-hospital/modules/thermistor"
 	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
@@ -45,6 +46,13 @@ func moduleSetup() {
 	core.SetupModule("heartrate", "heartrate1", heartrate.Settings{
 		PeakThreshold: 440,
 		Pin:           0,
+	})
+
+	core.SetupModule("thermistor", "thermistor1", thermistor.Settings{
+		Pin:           1,
+		R25:           10000,
+		FixedResistor: 12000,
+		SupplyVoltage: 5,
 	})
 
 }

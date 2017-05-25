@@ -8,9 +8,9 @@
 		</div>
 
 		<div class="right item on-mobile">
-			<div class="ui red labeled icon button" @click="CallNurse" style="margin-top:-5px;">
-				<i class="doctor icon"></i>
-				Call Nurse
+			<div class="ui labeled icon button" :class="nurse.color" @click="if (nurse.allowCalls) CallNurse()" style="margin-top:-5px;">
+				<i :class="nurse.icon" class="icon"></i>
+				{{nurse.status}}
 			</div>
 		</div>
 
@@ -35,12 +35,38 @@
 
 			<div class="right menu">
 				<div class="item">
-					<div class="ui red labeled icon button" @click="CallNurse" style="font-size:18px;">
-						<i class="doctor icon"></i>
-						Call Nurse
+					<div class="ui labeled icon button" :class="nurse.color" @click="if (nurse.allowCalls) CallNurse()" style="font-size:18px;">
+						<i :class="nurse.icon" class="icon"></i>
+						{{nurse.status}}
 					</div>
 				</div>
+				<!-- <div class="item">
+					<div class="ui green labeled icon button" style="font-size:18px;">
+						<i class="checkmark icon"></i>
+						Nurse called
+					</div>
+				</div> -->
+				<!-- <div class="item">
+					<div class="ui blue labeled icon button" style="font-size:18px;">
+						<i class="angle double right icon"></i>
+						Nurse on the way
+					</div>
+				</div> -->
 			</div>
+		</div>
+	</div>
+
+	<!-- $(".ui.modal .progress .bar").css("width", "0%");
+$(".ui.modal").modal({inverted:true, onVisible: function() {$(".ui.modal .progress .bar").css("width", "100%")}}).modal("show");
+ -->
+
+	<div class="ui small modal nurse-modal">
+		<div class="ui huge header">Calling nurse...</div>
+		<div class="actions">
+			<div class="ui red huge cancel button">Cancel</div>
+		</div>
+		<div class="ui bottom attached blue progress">
+			<div class="bar"></div>
 		</div>
 	</div>
 </div>

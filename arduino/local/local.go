@@ -8,13 +8,15 @@ import (
 
 	_ "github.com/1lann/smarter-hospital/modules/heartrate"
 	_ "github.com/1lann/smarter-hospital/modules/lights"
+	_ "github.com/1lann/smarter-hospital/modules/thermistor"
 	_ "github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
 func main() {
-	core.SetupModule("lights", "light1")
-	core.SetupModule("ultrasonic", "ultrasonic1")
-	core.SetupModule("heartrate", "heartrate1")
+	// core.SetupModule("lights", "light1")
+	// core.SetupModule("ultrasonic", "ultrasonic1")
+	// core.SetupModule("heartrate", "heartrate1")
+	core.SetupModule("thermistor", "thermistor1")
 
 	err := arduino.Connect("/dev/tty.usbmodem1411")
 	if err != nil {
