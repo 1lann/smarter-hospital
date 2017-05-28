@@ -1,7 +1,6 @@
 package climate
 
-import "github.com/1lann/smarter-hospital/core"
-
+// State ...
 type State int
 
 const (
@@ -9,14 +8,6 @@ const (
 	StateCooling
 	StateHeating
 )
-
-// Module ...
-type Module struct {
-	ID string
-	Settings
-
-	LastEvent Event
-}
 
 // Settings ...
 type Settings struct {
@@ -37,18 +28,4 @@ type Action struct {
 type Event struct {
 	State     State
 	Intensity float64
-}
-
-func init() {
-	core.RegisterModule(Module{})
-}
-
-// HandleEvent ...
-func (m *Module) HandleEvent(evt Event) {
-	m.LastEvent = evt
-}
-
-// Info ...
-func (m *Module) Info() Event {
-	return m.LastEvent
 }

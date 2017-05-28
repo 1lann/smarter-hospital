@@ -3,13 +3,17 @@
 	Heart rate
 </div>
 
-<div v-if="contact" class="ui green massive label">
+<div v-if="calculating" class="ui blue massive label">
+	<i class="wait icon"></i>
+	Calculating heart rate...
+</div>
+<div v-else-if="contact" class="ui green massive label">
 	<i class="heartbeat icon"></i>
 	{{bpm}} BPM
 </div>
 <div v-else class="ui massive label">
 	<i class="question icon"></i>
-	No heart rate detected
+	Place finger on sensor
 </div>
 
 <!-- <h1 class="ui header">

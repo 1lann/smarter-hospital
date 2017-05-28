@@ -67,6 +67,9 @@ func (c *Client) Error(moduleID string, err error) {
 	}
 
 	errorMessage := err.Error()
+
+	log.Println("core: "+moduleID+" emitted error:", err)
+
 	notifyErr := c.client.Notify(ErrorMsg, &errorMessage)
 	if notifyErr != nil {
 		log.Println("core: emit error failed:", notifyErr)

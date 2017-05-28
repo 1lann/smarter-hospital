@@ -18,9 +18,9 @@ import (
 	"github.com/1lann/smarter-hospital/views"
 	_ "github.com/1lann/smarter-hospital/views/imports"
 
-	"github.com/1lann/smarter-hospital/modules/heartrate"
+	_ "github.com/1lann/smarter-hospital/modules/heartrate"
 	"github.com/1lann/smarter-hospital/modules/lights"
-	"github.com/1lann/smarter-hospital/modules/thermistor"
+	"github.com/1lann/smarter-hospital/modules/thermometer"
 	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
 
@@ -38,21 +38,15 @@ func moduleSetup() {
 	})
 
 	core.SetupModule("ultrasonic", "ultrasonic1", ultrasonic.Settings{
-		TriggerPin:       5,
-		EchoPin:          6,
+		TriggerPin:       22,
+		EchoPin:          27,
 		ContactThreshold: 2,
 	})
 
-	core.SetupModule("heartrate", "heartrate1", heartrate.Settings{
-		PeakThreshold: 440,
-		Pin:           0,
-	})
+	core.SetupModule("heartrate", "heartrate1")
 
-	core.SetupModule("thermistor", "thermistor1", thermistor.Settings{
-		Pin:           1,
-		R25:           10000,
-		FixedResistor: 12000,
-		SupplyVoltage: 5,
+	core.SetupModule("thermometer", "thermometer1", thermometer.Settings{
+		DeviceID: "28-000004dddaa1",
 	})
 
 }

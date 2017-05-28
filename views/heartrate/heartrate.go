@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	heartRateGood    = "green heartbeat"
-	heartRateBad     = "red heartbeat"
-	heartRateMissing = "grey help"
+	heartRateGood        = "green heartbeat"
+	heartRateBad         = "red heartbeat"
+	heartRateCalculating = "wait blue"
+	heartRateMissing     = "grey help"
 )
 
 type HeartRate struct {
@@ -26,9 +27,10 @@ type HeartRate struct {
 
 type HeartRateComponent struct {
 	*js.Object
-	BPM      int  `js:"bpm"`
-	Contact  bool `js:"contact"`
-	moduleID string
+	BPM         int  `js:"bpm"`
+	Contact     bool `js:"contact"`
+	Calculating bool `js:"calculating"`
+	moduleID    string
 }
 
 func (c *HeartRate) Init(moduleID string) {
@@ -38,7 +40,7 @@ func (c *HeartRate) Init(moduleID string) {
 	item.ID = moduleID
 	item.Name = "Heart rate sensor"
 	item.Component = "heartrate"
-	item.Heading = "No heart rate detected"
+	item.Heading = "Place finger on sensor"
 	item.Icon = heartRateMissing
 	item.Available = true
 	item.Active = false
@@ -48,6 +50,7 @@ func (c *HeartRate) Init(moduleID string) {
 		moduleID: moduleID,
 	}
 	component.Contact = false
+	component.Calculating = false
 	component.BPM = 0
 
 	views.ComponentWithTemplate(func() interface{} {
@@ -62,12 +65,18 @@ func (c *HeartRate) Init(moduleID string) {
 func (c *HeartRate) onEvent(evt heartrate.Event) {
 	c.component.BPM = int(evt.BPM)
 	c.component.Contact = evt.Contact
+	c.component.Calculating = evt.Calculating
 
 	if evt.Contact {
-		c.item.Heading = strconv.Itoa(c.component.BPM) + " BPM"
-		c.item.Icon = heartRateGood
+		if evt.Calculating {
+			c.item.Heading = "Calculating heart rate..."
+			c.item.Icon = heartRateCalculating
+		} else {
+			c.item.Heading = strconv.Itoa(c.component.BPM) + " BPM"
+			c.item.Icon = heartRateGood
+		}
 	} else {
-		c.item.Heading = "No heart rate detected"
+		c.item.Heading = "Place finger on sensor"
 		c.item.Icon = heartRateMissing
 	}
 }

@@ -1,0 +1,2 @@
+#!/bin/bash
+GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-s -w" pi.go && upx pi &&  scp pi pi@192.168.8.217:/home/pi/pi

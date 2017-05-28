@@ -48,8 +48,8 @@ func (c *Lights) Init(moduleID string) {
 		moduleID: moduleID,
 	}
 	component.State = 0
-	component.DimmedState = 20
-	component.OnState = 70
+	component.DimmedState = 150
+	component.OnState = 255
 
 	views.ComponentWithTemplate(func() interface{} {
 		return component

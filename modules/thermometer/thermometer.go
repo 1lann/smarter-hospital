@@ -1,10 +1,8 @@
-package ultrasonic
+package thermometer
 
 // Settings ...
 type Settings struct {
-	TriggerPin       int
-	EchoPin          int
-	ContactThreshold float64
+	DeviceID string
 }
 
 // Action ...
@@ -12,5 +10,5 @@ type Action struct{}
 
 // Event ...
 type Event struct {
-	Contact bool
+	Temperature float64 // In Celsius
 }
