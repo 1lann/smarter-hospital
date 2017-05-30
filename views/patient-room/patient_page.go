@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/1lann/smarter-hospital/views"
+	"github.com/1lann/smarter-hospital/views/climate"
 	"github.com/1lann/smarter-hospital/views/comps"
 	"github.com/1lann/smarter-hospital/views/contact"
 	"github.com/1lann/smarter-hospital/views/heartrate"
 	"github.com/1lann/smarter-hospital/views/lights"
+	"github.com/1lann/smarter-hospital/views/occupancy"
 	_ "github.com/1lann/smarter-hospital/views/patient-navbar"
 	"github.com/1lann/smarter-hospital/ws"
 	"github.com/gopherjs/gopherjs/js"
@@ -18,9 +20,11 @@ import (
 )
 
 var modules = map[string]comps.Component{
-	"ultrasonic1": &contact.Contact{},
-	"heartrate1":  &heartrate.HeartRate{},
-	"light1":      &lights.Lights{},
+	"ultrasonic1":    &contact.Contact{},
+	"heartrate1":     &heartrate.HeartRate{},
+	"lights1":        &lights.Lights{},
+	"climatecontrol": &climate.Climate{},
+	"proximity1":     &occupancy.Occupancy{},
 }
 
 func (m *Model) SelectComponent(component string) {
@@ -28,6 +32,7 @@ func (m *Model) SelectComponent(component string) {
 		for _, item := range category.Items {
 			if item.Component == component {
 				item.Active = true
+				js.Global.Get("location").Set("hash", "#"+item.ID)
 			} else {
 				item.Active = false
 			}
@@ -46,6 +51,7 @@ func (m *Model) DisplayMenu() {
 	}
 
 	m.ShowMenu = true
+	js.Global.Get("location").Set("hash", "")
 }
 
 func getGreeting() string {
@@ -71,7 +77,8 @@ func populateCategories(m *Model) {
 	roomControls.Icon = "settings"
 	roomControls.Items = make([]*comps.Item, 0)
 
-	roomControls.Items = append(roomControls.Items, modules["light1"].Item())
+	roomControls.Items = append(roomControls.Items, modules["lights1"].Item())
+	roomControls.Items = append(roomControls.Items, modules["climatecontrol"].Item())
 	m.Categories = append(m.Categories, roomControls)
 
 	healthCategory := &comps.Category{
@@ -85,6 +92,7 @@ func populateCategories(m *Model) {
 
 	healthCategory.Items = append(healthCategory.Items, modules["ultrasonic1"].Item())
 	healthCategory.Items = append(healthCategory.Items, modules["heartrate1"].Item())
+	healthCategory.Items = append(healthCategory.Items, modules["proximity1"].Item())
 	m.Categories = append(m.Categories, healthCategory)
 }
 
@@ -168,11 +176,21 @@ func (p *Page) OnLoad() {
 	pageModel.Name = views.GetUser().FirstName + " " + views.GetUser().LastName
 	pageModel.Greeting = getGreeting()
 	pageModel.Connected = false
-	pageModel.ViewComponent = comps.UnavailableView
+
+	hash := strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#")
 
 	pageModel.Mobile = js.Global.Get("window").Get("innerWidth").Int() <= 700
+	pageModel.ShowMenu = true
 
-	p.showHash(strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#"))
+	if hash != "" {
+		p.showHash(hash)
+	} else if !pageModel.Mobile {
+		pageModel.ViewComponent = pageModel.Categories[0].Items[0].Component
+		pageModel.Categories[0].Items[0].Active = true
+		js.Global.Get("location").Set("hash", "#"+pageModel.Categories[0].Items[0].ID)
+	} else {
+		pageModel.ViewComponent = ""
+	}
 
 	js.Global.Get("window").Set("onhashchange", js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
 		p.showHash(strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#"))
@@ -185,14 +203,14 @@ func (p *Page) OnLoad() {
 func (p *Page) showHash(hash string) {
 	p.model.ShowMenu = true
 
-categoryLoop:
 	for _, category := range p.model.Categories {
 		for _, item := range category.Items {
 			if item.ID == hash {
 				item.Active = true
 				p.model.ShowMenu = false
 				p.model.ViewComponent = item.Component
-				break categoryLoop
+			} else {
+				item.Active = false
 			}
 		}
 	}
@@ -247,19 +265,21 @@ func (p *Page) OnConnect(client *ws.Client) {
 	for moduleID, module := range modules {
 		module.OnConnect(client)
 
-		if isInList(moduleID, connectedModules) {
-			module.Item().Available = true
-			if module.Item().Active {
-				p.model.ViewComponent = module.Item().Component
-			}
-			module.OnModuleConnect()
-		} else {
-			module.Item().Available = false
-			if module.Item().Active {
-				p.model.ViewComponent = comps.UnavailableView
-			}
+		if moduleID[len(moduleID)-1] > '0' && moduleID[len(moduleID)-1] < '9' {
+			if isInList(moduleID, connectedModules) {
+				module.Item().Available = true
+				if module.Item().Active {
+					p.model.ViewComponent = module.Item().Component
+				}
+				module.OnModuleConnect()
+			} else {
+				module.Item().Available = false
+				if module.Item().Active {
+					p.model.ViewComponent = comps.UnavailableView
+				}
 
-			module.OnModuleDisconnect()
+				module.OnModuleDisconnect()
+			}
 		}
 	}
 }

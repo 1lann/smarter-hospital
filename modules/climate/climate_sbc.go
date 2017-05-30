@@ -3,10 +3,11 @@
 package climate
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/1lann/smarter-hospital/core"
-	"github.com/kidoman/embd"
+	"github.com/1lann/smarter-hospital/pi/drivers"
 )
 
 // Module ...
@@ -15,8 +16,8 @@ type Module struct {
 	Settings
 
 	LastEvent  Event
-	CoolingPin embd.PWMPin
-	HeatingPin embd.PWMPin
+	CoolingPin string
+	HeatingPin string
 }
 
 func init() {
@@ -45,17 +46,17 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 
 	switch act.State {
 	case StateOff:
-		m.CoolingPin.SetAnalog(0)
-		m.HeatingPin.SetAnalog(0)
+		drivers.GoBot.PwmWrite(m.CoolingPin, 0)
+		drivers.GoBot.PwmWrite(m.HeatingPin, 0)
 	case StateCooling:
-		m.HeatingPin.SetAnalog(0)
-		m.HeatingPin.SetAnalog(byte(act.Intensity * float64(m.Settings.MaxCooling)))
+		drivers.GoBot.PwmWrite(m.HeatingPin, 0)
+		drivers.GoBot.PwmWrite(m.HeatingPin, byte(act.Intensity*float64(m.Settings.MaxCooling)))
 	case StateHeating:
-		m.CoolingPin.SetAnalog(0)
-		m.HeatingPin.SetAnalog(byte(act.Intensity * float64(m.Settings.MaxHeating)))
+		drivers.GoBot.PwmWrite(m.CoolingPin, 0)
+		drivers.GoBot.PwmWrite(m.HeatingPin, byte(act.Intensity*float64(m.Settings.MaxHeating)))
 	default:
-		m.CoolingPin.SetAnalog(0)
-		m.HeatingPin.SetAnalog(0)
+		drivers.GoBot.PwmWrite(m.CoolingPin, 0)
+		drivers.GoBot.PwmWrite(m.HeatingPin, 0)
 		act.State = StateOff
 	}
 
@@ -71,16 +72,8 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 
 // PollEvents ...
 func (m *Module) PollEvents(client *core.Client) {
-	var err error
-	m.CoolingPin, err = embd.NewPWMPin(m.Settings.CoolingPin)
-	if err != nil {
-		panic(err)
-	}
-
-	m.HeatingPin, err = embd.NewPWMPin(m.Settings.HeatingPin)
-	if err != nil {
-		panic(err)
-	}
+	m.CoolingPin = strconv.Itoa(m.Settings.CoolingPin)
+	m.HeatingPin = strconv.Itoa(m.Settings.HeatingPin)
 
 	for {
 		time.Sleep(time.Second * 5)

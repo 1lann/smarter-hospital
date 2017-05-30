@@ -169,7 +169,7 @@ func Connect(addr string) *Client {
 						go func(module *setupModule, moduleID string) {
 							for {
 								safeEventPoll(module, moduleID, c)
-								time.Sleep(time.Second * 5)
+								time.Sleep(time.Second * 2)
 							}
 						}(module, moduleID)
 					}

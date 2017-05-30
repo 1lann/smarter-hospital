@@ -3,6 +3,7 @@
 package ultrasonic
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -16,6 +17,9 @@ type Module struct {
 	Settings
 
 	LastEvent Event
+
+	Calibrated       bool
+	ContactThreshold float64
 }
 
 func init() {
@@ -52,6 +56,9 @@ func (m *Module) PollEvents(client *core.Client) {
 	lastContact := false
 	var lastEmit time.Time
 
+	numCalibration := 0
+	var calibrationSum float64
+
 	ticker := time.NewTicker(time.Millisecond * 100)
 	for range ticker.C {
 		triggerPin.Write(embd.High)
@@ -66,6 +73,11 @@ func (m *Module) PollEvents(client *core.Client) {
 		var duration time.Duration
 
 		err = echoPin.Watch(embd.EdgeBoth, func(arg2 embd.DigitalPin) {
+			n, _ := arg2.Read()
+			if n == embd.Low && startTime.IsZero() {
+				return
+			}
+
 			if startTime.IsZero() {
 				startTime = time.Now()
 				return
@@ -95,12 +107,25 @@ func (m *Module) PollEvents(client *core.Client) {
 			continue
 		}
 
-		durationSeconds := duration.Seconds() * 1000
-		if durationSeconds > m.Settings.ContactThreshold {
-			durationSeconds = m.Settings.ContactThreshold * 1.5
+		// fmt.Println(duration.Seconds() * 1000)
+
+		if !m.Calibrated {
+			calibrationSum += duration.Seconds() * 1000
+			numCalibration++
+
+			if numCalibration >= 30 {
+				m.Calibrated = true
+				m.ContactThreshold = (calibrationSum / float64(numCalibration)) * 0.6
+				log.Println("ultrasonic: calbirated to:", (calibrationSum/float64(numCalibration))*0.6)
+			}
+
+			continue
 		}
 
-		log.Println(duration)
+		durationSeconds := duration.Seconds() * 1000
+		if durationSeconds > m.ContactThreshold {
+			durationSeconds = m.ContactThreshold * 1.5
+		}
 
 		lastThree = append(lastThree[1:], durationSeconds)
 		if lastThree[0] == 0 || lastThree[1] == 0 || lastThree[2] == 0 {
@@ -108,10 +133,11 @@ func (m *Module) PollEvents(client *core.Client) {
 		}
 
 		average := (lastThree[0] + lastThree[1] + lastThree[2]) / 3.0
+		fmt.Println("average:", average)
 
 		newContact := false
 
-		if average < m.Settings.ContactThreshold {
+		if average < m.ContactThreshold {
 			newContact = true
 		}
 

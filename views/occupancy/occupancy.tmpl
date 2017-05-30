@@ -1,0 +1,24 @@
+<div>
+<div class="ui large header">
+	Room occupancy level
+</div>
+
+<div v-if="occupancy == 0" class="ui massive label">
+	<i class="help icon"></i>
+	Room vacant
+</div>
+<div v-else-if="occupancy == 1" class="ui green massive label">
+	<i class="users icon"></i>
+	1 person in the room
+</div>
+<div v-else class="ui green massive label">
+	<i class="users icon"></i>
+	{{occupancy}} people in the room
+</div>
+</div>
+
+<!-- <h1 class="ui header">
+	History
+</h1>
+Coming soon...
+</div> -->

@@ -1,0 +1,44 @@
+<div>
+<div class="ui large header">
+	Climate control
+</div>
+
+<div class="ui grid">
+	<div class="sixteen wide column" @click="Turn(on ? 'off' : 'on')">
+		<button v-if="on" class="ui green fluid massive button"><i class="power icon" ></i> On</button>
+		<button v-else class="ui red basic fluid massive button"><i class="power icon"></i> Off</button>
+	</div>
+	<div class="eight wide column">
+		<div class="ui header">
+			Right now
+		</div>
+		<div style="padding-top:80px;font-size:60px;text-align:center;">
+			{{currentTemperature}}&deg;C
+		</div>
+	</div>
+	<div class="eight wide column">
+		<div class="ui header">
+			Set temperature
+		</div>
+		<div class="ui vertical labeled icon fluid large buttons">
+			<div class="ui top attached primary fluid button" :class="{disabled: targetTemperature >= 27}" style="padding:10px !important;" @click="SetTemperature(targetTemperature + 1)">
+				<span style="text-align:center;width:100%;"><i class="chevron up icon"></i></span>
+			</div>
+			<div class="ui attached segment">
+				<div style="padding-top:30px;font-size:60px;text-align:center;height:80px;">
+					{{targetTemperature}}&deg;C
+				</div>
+			</div>
+			<div class="ui bottom attached primary fluid button" style="padding:10px !important;" @click="SetTemperature(targetTemperature - 1)" :class="{disabled: targetTemperature <= 18}">
+				<span style="text-align:center;width:100%;"><i class="chevron down icon"></i></span>
+			</div>
+		</div>
+
+	</div>
+</div>
+
+<!-- <h1 class="ui header">
+	History
+</h1>
+Coming soon...
+</div> -->

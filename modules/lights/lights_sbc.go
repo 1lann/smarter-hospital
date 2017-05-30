@@ -3,11 +3,12 @@
 package lights
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/1lann/smarter-hospital/core"
-	"github.com/kidoman/embd"
+	"github.com/1lann/smarter-hospital/pi/drivers"
 )
 
 // Module ...
@@ -18,7 +19,7 @@ type Module struct {
 	LastEvent    Event
 	CurrentState int
 	Mutex        *sync.Mutex
-	Pin          embd.PWMPin
+	Pin          string
 }
 
 func init() {
@@ -54,19 +55,19 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 			ticks := act.State - m.CurrentState
 			duration := m.AnimationDuration / time.Duration(ticks)
 			for i := 0; i <= ticks; i++ {
-				m.Pin.SetAnalog(byte(m.CurrentState + i))
+				drivers.GoBot.PwmWrite(m.Pin, byte(m.CurrentState+i))
 				time.Sleep(duration)
 			}
 		} else {
 			ticks := m.CurrentState - act.State
 			duration := m.AnimationDuration / time.Duration(ticks)
 			for i := 0; i <= ticks; i++ {
-				m.Pin.SetAnalog(byte(m.CurrentState - i))
+				drivers.GoBot.PwmWrite(m.Pin, byte(m.CurrentState-i))
 				time.Sleep(duration)
 			}
 		}
 
-		m.Pin.SetAnalog(byte(act.State))
+		drivers.GoBot.PwmWrite(m.Pin, byte(act.State))
 
 		m.CurrentState = act.State
 	}(m, act)
@@ -82,11 +83,7 @@ func (m *Module) HandleAction(client *core.Client, act Action) error {
 
 // PollEvents ...
 func (m *Module) PollEvents(client *core.Client) {
-	var err error
-	m.Pin, err = embd.NewPWMPin(m.Settings.Pin)
-	if err != nil {
-		panic(err)
-	}
+	m.Pin = strconv.Itoa(m.Settings.Pin)
 
 	for {
 		time.Sleep(time.Second * 5)

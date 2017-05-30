@@ -26,6 +26,7 @@ type Notification struct {
 
 	Heading    string
 	SubHeading string
+	Location   string
 	Icon       string
 	Link       string
 
@@ -72,7 +73,7 @@ func (s *Server) Push(n Notification) error {
 
 // Dismiss dismisses a notification across all clients.
 func (s *Server) Dismiss(id string) error {
-	err := store.C("notify").UpdateId(id, bson.M{"dismissed": true})
+	err := store.C("notify").UpdateId(bson.ObjectIdHex(id), bson.M{"dismissed": true})
 	if err != nil {
 		return err
 	}

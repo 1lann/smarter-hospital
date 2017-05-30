@@ -3,6 +3,7 @@
 package navbar
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/1lann/smarter-hospital/views"
@@ -47,6 +48,28 @@ func (m *Model) CallNurse() {
 				case <-time.After(time.Second * 5):
 					// TODO: Make request
 					jquery.NewJQuery(".ui.modal.nurse-modal").Call("modal", "hide")
+
+					go func() {
+						resp, err := http.Get(views.Address + "/notify/call")
+						if err != nil {
+							println("call nurse:", err)
+							return
+						}
+
+						defer resp.Body.Close()
+					}()
+
+					m.Nurse.AllowCalls = false
+					m.Nurse.Icon = "checkmark"
+					m.Nurse.Color = "green"
+					m.Nurse.Status = "Nurse called"
+
+					time.Sleep(time.Second * 10)
+
+					m.Nurse.AllowCalls = true
+					m.Nurse.Icon = "doctor"
+					m.Nurse.Color = "red"
+					m.Nurse.Status = "Call nurse"
 				case <-denied:
 					println("cancelled")
 				}

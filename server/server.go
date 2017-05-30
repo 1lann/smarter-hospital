@@ -18,8 +18,10 @@ import (
 	"github.com/1lann/smarter-hospital/views"
 	_ "github.com/1lann/smarter-hospital/views/imports"
 
+	"github.com/1lann/smarter-hospital/modules/climate"
 	_ "github.com/1lann/smarter-hospital/modules/heartrate"
 	"github.com/1lann/smarter-hospital/modules/lights"
+	"github.com/1lann/smarter-hospital/modules/proximity"
 	"github.com/1lann/smarter-hospital/modules/thermometer"
 	"github.com/1lann/smarter-hospital/modules/ultrasonic"
 )
@@ -32,23 +34,31 @@ var connectedModules = make(map[string]bool)
 var connectedMutex = new(sync.Mutex)
 
 func moduleSetup() {
-	core.SetupModule("lights", "light1", lights.Settings{
-		Pin:               11,
+	core.SetupModule("lights", "lights1", lights.Settings{
+		Pin:               12,
 		AnimationDuration: time.Second,
 	})
 
 	core.SetupModule("ultrasonic", "ultrasonic1", ultrasonic.Settings{
-		TriggerPin:       22,
-		EchoPin:          27,
-		ContactThreshold: 2,
+		TriggerPin: 14,
+		EchoPin:    15,
 	})
 
 	core.SetupModule("heartrate", "heartrate1")
+	core.SetupModule("proximity", "proximity1", proximity.Settings{
+		PersonHeight: 100,
+	})
 
 	core.SetupModule("thermometer", "thermometer1", thermometer.Settings{
 		DeviceID: "28-000004dddaa1",
 	})
 
+	core.SetupModule("climate", "climate1", climate.Settings{
+		CoolingPin: 11,
+		HeatingPin: 13,
+		MaxHeating: 255,
+		MaxCooling: 255,
+	})
 }
 
 func main() {
@@ -82,16 +92,17 @@ func main() {
 		wsServer.Emit(moduleID, event)
 	})
 
+	r := gin.Default()
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
+
 	notifyServer := notify.NewServer(wsServer)
-	logic.Register(wsServer, notifyServer)
+	logic.Register(r, wsServer, notifyServer)
 
 	server, err = core.NewServer("0.0.0.0:5000")
 	if err != nil {
 		panic(err)
 	}
 
-	r := gin.Default()
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.LoadHTMLFiles(webPath + "/view.tmpl")
 
 	allPages := views.AllPages()
@@ -133,6 +144,21 @@ func main() {
 			log.Println("server: notify: dismiss:", err)
 			c.String(http.StatusInternalServerError, err.Error())
 			return
+		}
+
+		c.String(http.StatusOK, "")
+	})
+
+	r.GET("/notify/call", func(c *gin.Context) {
+		err := notifyServer.Push(notify.Notification{
+			Alert:    true,
+			Heading:  "Ash Ketchum made a nurse call",
+			Location: "Ash Ketchum - Room 025",
+			Icon:     "red doctor",
+			Link:     "/nurse/room",
+		})
+		if err != nil {
+			log.Println(err)
 		}
 
 		c.String(http.StatusOK, "")

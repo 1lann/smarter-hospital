@@ -2,9 +2,8 @@ package ultrasonic
 
 // Settings ...
 type Settings struct {
-	TriggerPin       int
-	EchoPin          int
-	ContactThreshold float64
+	TriggerPin int
+	EchoPin    int
 }
 
 // Action ...

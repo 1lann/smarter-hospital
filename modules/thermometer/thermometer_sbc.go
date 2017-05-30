@@ -5,7 +5,6 @@ package thermometer
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -78,8 +77,6 @@ func (m *Module) PollEvents(client *core.Client) {
 			client.Error(m.ID, err)
 			continue
 		}
-
-		log.Println("temp:", float64(temp)/1000)
 
 		client.Emit(m.ID, Event{
 			Temperature: float64(temp) / 1000,

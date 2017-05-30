@@ -1,29 +1,53 @@
 <div class="alerts-component">
-	<div v-if="mobile" class="ui left labeled button">
+	<div v-if="mobile" class="ui left labeled button" @click="showMenu = !showMenu" :class="{active: showMenu}">
 		<div class="ui basic tiny label" :class="events.length ? 'red' : 'green'">
 			{{events.length}}
 		</div>
-		<div class="ui button" :class="events.length ? 'red' : 'green'">
+		<div class="ui button" :class="(events.length ? 'red' : 'green') + ' ' + (showMenu ? 'active' : '')">
 			Alerts
 		</div>
 	</div>
-	<div v-else class="ui left labeled button" style="font-size:18px;">
+	<div v-else class="ui left labeled button" style="font-size:18px;" @click="showMenu = !showMenu">
 		<div class="ui basic label" :class="events.length ? 'red' : 'green'">
 			{{events.length}}
 		</div>
-		<div class="ui button" :class="events.length ? 'red' : 'green'" style="font-size:18px;">
+		<div class="ui button" :class="(events.length ? 'red' : 'green') + ' ' + (showMenu ? 'active' : '')" style="font-size:18px;">
 			<i class="alarm icon"></i>
 			Alerts
 		</div>
 	</div>
-	<div class="ui green inverted segment alerts-list">
+	<div v-if="events.length == 0 &amp;&amp; showMenu" class="ui green inverted segment alerts-list">
 		<div class="ui inverted header">
 			<i class="checkmark icon"></i>
 			<div class="content">
-				There are no alerts, woo!
+				You can relax for now, there are no alerts!
 				<div class="sub header">
 					Looking for <a href="/nurse/room#events">past events</a>?
 				</div>
+			</div>
+		</div>
+	</div>
+	<div v-else-if="showMenu" class="ui red inverted segment alerts-list">
+		<div v-for="event in events" class="ui fluid segment link card" @click="Click(event.id)">
+			<div class="content">
+				<div class="ui header">
+					<i :class="event.icon" class="icon"></i>
+					<div class="content">
+						{{event.heading}}
+					</div>
+				</div>
+				<!-- <div class="meta">
+					{{event.subHeading}}
+				</div> -->
+				<div class="description">
+					{{event.location}}
+				</div>
+			</div>
+			<div class="extra content">
+				<span>
+					<i class="wait icon"></i>
+					{{event.time}}
+				</span>
 			</div>
 		</div>
 	</div>

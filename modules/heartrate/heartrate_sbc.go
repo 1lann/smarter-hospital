@@ -20,15 +20,13 @@ type Module struct {
 	ID string
 	Settings
 
-	LastBPM [5]float64
+	LastBPM   [5]float64
+	LastEvent Event
 }
 
 func init() {
 	core.RegisterModule(Module{})
 }
-
-// HandleEvent ...
-func (m *Module) HandleEvent(evt Event) {}
 
 type pwelchPoint struct {
 	Frequency float64
@@ -55,7 +53,7 @@ func (m *Module) PollEvents(client *core.Client) {
 		samples, err := d.ReadSamples()
 		if err != nil {
 			client.Error(m.ID, err)
-			return
+			continue
 		}
 
 		data := make([]float64, len(samples))
@@ -206,4 +204,12 @@ func (m *Module) PollEvents(client *core.Client) {
 			lastCalculation = time.Now()
 		}
 	}
+}
+
+func (m *Module) Info() Event {
+	return m.LastEvent
+}
+
+func (m *Module) HandleEvent(evt Event) {
+	m.LastEvent = evt
 }
